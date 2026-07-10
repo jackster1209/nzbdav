@@ -44,6 +44,16 @@ dotnet nuget add source https://nuget.pkg.github.com/nzbdav/index.json \
 
 If the `github` source already exists locally, use `dotnet nuget update source github` with the same options instead.
 
+### Dependabot (NuGet updates)
+
+Dependabot cannot use `GITHUB_TOKEN` for private GitHub Packages feeds. Add a **Dependabot** secret (Settings → Secrets and variables → Dependabot):
+
+| Secret | Value |
+|--------|-------|
+| `GH_PACKAGES_READ_TOKEN` | Classic PAT with `read:packages` scope |
+
+Also grant `nzbdav/nzbdav` **Read** on the UsenetSharp package (Package settings → Manage Actions access).
+
 ```bash
 cd backend
 

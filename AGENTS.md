@@ -220,7 +220,8 @@ Docker image builds are shared via the reusable workflow. Branch and dependabot 
 - When a GitHub release is **published**, the same workflow builds and pushes Docker images to `ghcr.io` (`latest`, exact semver, and rolling `vMAJOR` / `vMAJOR.MINOR` tags).
 - To republish images for an existing release (e.g. after fixing CI), run **Release** workflow manually with the `version` input (e.g. `0.6.5`).
 - Pre-release Docker images (`:dev`) build on every `main` push except `chore(main): release` commits.
-- Ensure `nzbdav/nzbdav` has **Read** access on the UsenetSharp GitHub Package (Package settings → Manage Actions access); without it Docker builds fail restoring the private NuGet feed.
+- Ensure `nzbdav/nzbdav` has **Read** access on the UsenetSharp GitHub Package (Package settings → Manage Actions access); without it Docker builds and CI fail restoring the private NuGet feed.
+- Dependabot NuGet updates also need a **Dependabot secret** `GH_PACKAGES_READ_TOKEN` (classic PAT with `read:packages`) referenced in `.github/dependabot.yml`; `GITHUB_TOKEN` cannot be used in Dependabot registry config.
 - Disable GitHub's **Automatic dependency submission** in repo settings once `dependency-submission.yml` is active (the built-in workflow cannot auth to GitHub Packages).
 
 ## Coding guidelines
