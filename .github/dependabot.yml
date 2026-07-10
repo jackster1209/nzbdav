@@ -6,12 +6,16 @@ registries:
     url: https://nuget.pkg.github.com/nzbdav/index.json
     username: nzbdav
     password: ${{secrets.GH_PACKAGES_READ_TOKEN}}
+  nuget-org:
+    type: nuget-feed
+    url: https://api.nuget.org/v3/index.json
 
 updates:
   - package-ecosystem: nuget
     directory: /backend
     registries:
       - github-nzbdav
+      - nuget-org
     schedule:
       interval: weekly
     cooldown:
