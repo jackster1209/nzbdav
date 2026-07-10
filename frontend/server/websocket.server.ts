@@ -79,17 +79,24 @@ export function initializeWebsocketClient(subscriptions: Map<string, Set<WebSock
         };
 
         socket.onmessage = (event: WebSocket.MessageEvent) => {
-            var rawMessage = event.data.toString();
-            var topicMessage = JSON.parse(rawMessage);
-            var [topic, message] = [topicMessage.Topic, topicMessage.Message];
-            if (!topic || !message) return;
-            lastMessage.set(topic, rawMessage);
-            var subscribed = subscriptions.get(topic) || [];
-            subscribed.forEach(client => {
-                if (client.readyState === client.OPEN) {
-                    client.send(rawMessage);
-                }
-            });
+            try {
+                const rawMessage = event.data.toString();
+                const topicMessage: unknown = JSON.parse(rawMessage);
+                if (!topicMessage || typeof topicMessage !== "object") return;
+
+                const { Topic: topic, Message: message } = topicMessage as Record<string, unknown>;
+                if (typeof topic !== "string" || typeof message !== "string") return;
+
+                lastMessage.set(topic, rawMessage);
+                const subscribed = subscriptions.get(topic) || [];
+                subscribed.forEach(client => {
+                    if (client.readyState === client.OPEN) {
+                        client.send(rawMessage);
+                    }
+                });
+            } catch (error) {
+                console.error("Ignoring malformed backend WebSocket message:", error);
+            }
         };
 
         socket.onclose = (event: WebSocket.CloseEvent) => {
