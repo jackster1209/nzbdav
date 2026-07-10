@@ -26,17 +26,28 @@ public class ArrMonitoringService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            // Ensure delay runs on each iteration
-            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken).ConfigureAwait(false);
+            try
+            {
+                // Ensure delay runs on each iteration
+                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken).ConfigureAwait(false);
 
-            // if all queue-actions are disabled, then do nothing
-            var arrConfig = _configManager.GetArrConfig();
-            if (arrConfig.QueueRules.All(x => x.Action == ArrConfig.QueueAction.DoNothing))
-                continue;
+                // if all queue-actions are disabled, then do nothing
+                var arrConfig = _configManager.GetArrConfig();
+                if (arrConfig.QueueRules.All(x => x.Action == ArrConfig.QueueAction.DoNothing))
+                    continue;
 
-            // otherwise, handle stuck queue items according to the config
-            foreach (var arrClient in arrConfig.GetArrClients())
-                await HandleStuckQueueItems(arrConfig, arrClient).ConfigureAwait(false);
+                // otherwise, handle stuck queue items according to the config
+                foreach (var arrClient in arrConfig.GetArrClients())
+                    await HandleStuckQueueItems(arrConfig, arrClient).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Unexpected error in Arr queue monitoring loop.");
+            }
         }
     }
 
