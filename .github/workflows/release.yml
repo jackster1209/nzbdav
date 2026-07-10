@@ -4,33 +4,62 @@ on:
   push:
     branches:
       - main
-
-concurrency:
-  group: release-${{ github.repository }}
-  cancel-in-progress: false
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic version to publish (e.g. 0.6.5)
+        required: true
 
 jobs:
-  release:
+  release-please:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      major: ${{ steps.release.outputs.major }}
-      minor: ${{ steps.release.outputs.minor }}
-      patch: ${{ steps.release.outputs.patch }}
-      sha: ${{ steps.release.outputs.sha }}
     permissions:
       contents: write
       pull-requests: write
     steps:
       - name: Create release
         uses: googleapis/release-please-action@v5
-        id: release
         with:
           config-file: .release-please-config.json
 
+  resolve-version:
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.vars.outputs.version }}
+      major: ${{ steps.vars.outputs.major }}
+      minor: ${{ steps.vars.outputs.minor }}
+      patch: ${{ steps.vars.outputs.patch }}
+      ref: ${{ steps.vars.outputs.ref }}
+    steps:
+      - name: Resolve version and tag
+        id: vars
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            REF="v${VERSION}"
+          else
+            REF="${{ github.event.release.tag_name }}"
+            VERSION="${REF#v}"
+          fi
+          MAJOR="${VERSION%%.*}"
+          REST="${VERSION#*.}"
+          MINOR="${REST%%.*}"
+          PATCH="${VERSION##*.}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "major=${MAJOR}" >> "$GITHUB_OUTPUT"
+          echo "minor=${MINOR}" >> "$GITHUB_OUTPUT"
+          echo "patch=${PATCH}" >> "$GITHUB_OUTPUT"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
   deploy:
-    if: ${{ needs.release.outputs.release_created }}
-    needs: release
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    needs: resolve-version
     uses: ./.github/workflows/docker-build-push.yml
     permissions:
       contents: read
@@ -38,10 +67,10 @@ jobs:
     with:
       tags: |
         ghcr.io/${{ github.repository }}:latest
-        ghcr.io/${{ github.repository }}:${{ needs.release.outputs.major }}.${{ needs.release.outputs.minor }}.${{ needs.release.outputs.patch }}
-        ghcr.io/${{ github.repository }}:${{ needs.release.outputs.major }}.x
-        ghcr.io/${{ github.repository }}:${{ needs.release.outputs.major }}.${{ needs.release.outputs.minor }}.x
-      nzbdav_version: ${{ needs.release.outputs.major }}.${{ needs.release.outputs.minor }}.${{ needs.release.outputs.patch }}
-      checkout_ref: ${{ needs.release.outputs.sha }}
+        ghcr.io/${{ github.repository }}:${{ needs.resolve-version.outputs.version }}
+        ghcr.io/${{ github.repository }}:${{ needs.resolve-version.outputs.major }}.x
+        ghcr.io/${{ github.repository }}:${{ needs.resolve-version.outputs.major }}.${{ needs.resolve-version.outputs.minor }}.x
+      nzbdav_version: ${{ needs.resolve-version.outputs.version }}
+      checkout_ref: ${{ needs.resolve-version.outputs.ref }}
     secrets:
       registry_token: ${{ secrets.GITHUB_TOKEN }}
