@@ -1,0 +1,108 @@
+name: Bug report
+description: Report a reproducible problem in NzbDav
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem.
+
+        Please do not include Usenet credentials, API keys, passwords, NZB contents, or other private data. NzbDav supports legally obtained content only; reports involving copyright infringement will be closed.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have searched existing issues and did not find a duplicate.
+          required: true
+        - label: I am using NzbDav with legally obtained content.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: NzbDav version
+      description: Enter the version shown in the NzbDav UI or the Docker image tag.
+      placeholder: "e.g. 0.6.4 or ghcr.io/nzbdav/nzbdav:0.6.4"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - Official Docker image
+        - Docker Compose
+        - Built from source
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - WebDAV or streaming
+        - Usenet provider connection
+        - Queue, NZB processing, or health checks
+        - SABnzbd-compatible API
+        - Sonarr, Radarr, or another integration
+        - Admin UI
+        - Authentication
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior, including any error message.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Give the smallest reliable set of steps.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Paste redacted logs or attach screenshots. Remove credentials, API keys, paths that identify you, and NZB contents.
+      render: text
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, CPU architecture, browser/client, and integration versions when relevant.
+      placeholder: |
+        OS:
+        Architecture:
+        Browser or WebDAV client:
+        Integration and version:
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add anything else that could help investigate the problem.
