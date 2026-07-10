@@ -97,7 +97,29 @@ Open `http://localhost:5173` (dev) or `http://localhost:3000` (production build)
 cd frontend && npm run typecheck
 ```
 
-There is no automated test suite today. Verify behavior manually or with targeted checks.
+The NzbDav repository has no automated test suite today. Verify behavior manually or with targeted checks.
+
+## UsenetSharp integration
+
+NzbDav consumes `UsenetSharp` from the private GitHub Packages feed. The library is commonly checked out as a sibling repository at `../UsenetSharp`.
+
+- Keep the committed `PackageReference`; use a temporary `ProjectReference` only to validate coordinated local changes, then restore the package reference before committing.
+- Publish and verify the UsenetSharp package before bumping `backend/NzbWebDAV.csproj`. A release tag can exist without a package if the publish workflow fails before its pack/push steps.
+- Local restores need GitHub Packages credentials with `read:packages`. Repository CI authenticates separately and is the authoritative package-consumption check.
+- For cross-repository changes, build both projects and run UsenetSharp's deterministic tests:
+
+```bash
+dotnet test ../UsenetSharp/UsenetSharp.sln --filter "TestCategory!=Integration"
+dotnet build backend/NzbWebDAV.csproj
+```
+
+### Streaming lifecycle invariants
+
+- Every BODY/ARTICLE completion callback must fire exactly once, including cancellation, missing articles, setup failures, and stream failures.
+- `Retrieved` means success and a reusable connection; `Cancelled` means cancellation drained cleanly and the connection is reusable; `NotFound` is a clean server miss; `NotRetrieved` means the connection must be replaced.
+- Completion callbacks release both provider-pool locks and global download permits. Contain callback exceptions so they cannot fault transport tasks.
+- Pipelined batch response tasks must complete in request order. Mixed cache-hit batches should request only misses while preserving that ordering.
+- Fallback transfers within a batch must start in response order and remain bounded; unordered semaphore acquisition can deadlock sequential consumers.
 
 ## Where to change things
 
@@ -239,8 +261,9 @@ Docker image builds are shared via the reusable workflow. Branch and dependabot 
 - **Env mismatch:** frontend and backend must share `CONFIG_PATH`, `FRONTEND_BACKEND_API_KEY`, and `BACKEND_URL`.
 - **Proxy paths:** new WebDAV mount points must be added to the proxy allowlists in `frontend/server/app.ts` and compression skip list in `frontend/server.ts`.
 - **Editing CHANGELOG.md:** it is generated — commit messages are the source of truth.
+- **Package release ordering:** do not bump UsenetSharp merely because a release/tag exists; confirm the package publish job completed.
 - **Breaking upgrades:** major incompatible releases may gate startup in `Program.cs` (see `UPGRADE` env var pattern).
-- **No test suite:** rely on `npm run typecheck` and manual verification.
+- **No NzbDav test suite:** rely on backend builds, `npm run typecheck`, and manual verification.
 
 ## Useful references
 
