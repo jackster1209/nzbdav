@@ -54,7 +54,7 @@ public class NzbFileStreamTests
         stream.Seek(offset, SeekOrigin.Begin);
         var buffer = new byte[3];
 
-        var read = await stream.ReadAsync(buffer);
+        var read = await stream.ReadAtLeastAsync(buffer, buffer.Length, throwOnEndOfStream: false);
 
         Assert.Equal(expected, Encoding.ASCII.GetString(buffer, 0, read));
         Assert.Equal(offset + read, stream.Position);

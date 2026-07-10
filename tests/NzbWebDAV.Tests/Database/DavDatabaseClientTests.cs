@@ -4,7 +4,6 @@ using NzbWebDAV.Database;
 using NzbWebDAV.Database.Interceptors;
 using NzbWebDAV.Database.MigrationHelpers;
 using NzbWebDAV.Database.Models;
-using NzbWebDAV.Extensions;
 using NzbWebDAV.Config;
 using NzbWebDAV.Queue;
 using NzbWebDAV.Tests.Fakes;
@@ -36,9 +35,9 @@ public sealed class DavDatabaseClientTests : IAsyncLifetime
     [Fact]
     public async Task DirectoryQueriesAndRecursiveSize_UseRealSqliteSchema()
     {
-        var root = CloneRoot();
+        // the root item is already seeded by the database migrations
         var directory = DavItem.New(
-            Guid.NewGuid(), root, "movies", null,
+            Guid.NewGuid(), DavItem.Root, "movies", null,
             DavItem.ItemType.Directory, DavItem.ItemSubType.Directory,
             null, null, null, null);
         var nestedDirectory = DavItem.New(
@@ -54,7 +53,7 @@ public sealed class DavDatabaseClientTests : IAsyncLifetime
             DavItem.ItemType.UsenetFile, DavItem.ItemSubType.NzbFile,
             null, null, null, null);
 
-        _context.Items.AddRange(root, directory, nestedDirectory, firstFile, nestedFile);
+        _context.Items.AddRange(directory, nestedDirectory, firstFile, nestedFile);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
 
@@ -111,21 +110,5 @@ public sealed class DavDatabaseClientTests : IAsyncLifetime
     {
         await _context.DisposeAsync();
         File.Delete(_databasePath);
-    }
-
-    private static DavItem CloneRoot()
-    {
-        return new DavItem
-        {
-            Id = DavItem.Root.Id,
-            IdPrefix = DavItem.Root.Id.GetFiveLengthPrefix(),
-            CreatedAt = DateTime.UtcNow,
-            ParentId = null,
-            Name = DavItem.Root.Name,
-            FileSize = null,
-            Type = DavItem.Root.Type,
-            SubType = DavItem.Root.SubType,
-            Path = DavItem.Root.Path
-        };
     }
 }
