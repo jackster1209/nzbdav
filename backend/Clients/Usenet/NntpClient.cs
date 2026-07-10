@@ -171,7 +171,12 @@ public abstract class NntpClient : INntpClient
             progress?.Report(++processed);
             if (task.Result.ResponseType == UsenetResponseType.ArticleExists) continue;
             await childCt.CancelAsync().ConfigureAwait(false);
-            throw new UsenetArticleNotFoundException(task.SegmentId);
+
+            // Only a clean 430 proves the article is missing; any other response
+            // (e.g. a stale connection's goodbye line) must not fail the health check.
+            if (task.Result.ResponseType == UsenetResponseType.NoArticleWithThatMessageId)
+                throw new UsenetArticleNotFoundException(task.SegmentId, task.Result.ResponseMessage);
+            throw new UsenetUnexpectedResponseException(task.SegmentId, task.Result.ResponseMessage);
         }
     }
 }

@@ -55,7 +55,9 @@ public sealed class ConnectionPool<T> : IDisposable, IAsyncDisposable
 
         _factory = connectionFactory
                    ?? throw new ArgumentNullException(nameof(connectionFactory));
-        IdleTimeout = idleTimeout ?? TimeSpan.FromMinutes(5);
+        // Keep this below typical NNTP server-side idle timeouts (30-180s);
+        // connections idled longer are closed by the server and fail on next use.
+        IdleTimeout = idleTimeout ?? TimeSpan.FromSeconds(60);
         if (IdleTimeout <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(idleTimeout));
 
@@ -96,7 +98,7 @@ public sealed class ConnectionPool<T> : IDisposable, IAsyncDisposable
             if (!item.IsExpired(IdleTimeout))
             {
                 TriggerConnectionPoolChangedEvent();
-                return BuildLock(item.Connection);
+                return BuildLock(item.Connection, wasReused: true);
             }
 
             // Stale – destroy and continue looking.
@@ -119,10 +121,10 @@ public sealed class ConnectionPool<T> : IDisposable, IAsyncDisposable
 
         Interlocked.Increment(ref _live);
         TriggerConnectionPoolChangedEvent();
-        return BuildLock(conn);
+        return BuildLock(conn, wasReused: false);
 
-        ConnectionLock<T> BuildLock(T c)
-            => new(c, Return, Destroy);
+        ConnectionLock<T> BuildLock(T c, bool wasReused)
+            => new(c, Return, Destroy, wasReused);
 
         static void ThrowDisposed()
             => throw new ObjectDisposedException(nameof(ConnectionPool<T>));

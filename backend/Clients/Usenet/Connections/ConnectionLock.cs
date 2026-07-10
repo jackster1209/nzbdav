@@ -18,16 +18,25 @@ public sealed class ConnectionLock<T> : IDisposable
     (
         T connection,
         Action<T> syncReturn,
-        Action<T> syncDestroy
+        Action<T> syncDestroy,
+        bool wasReused
     )
     {
         _connection = connection;
         _syncReturn = syncReturn;
         _syncDestroy = syncDestroy;
+        WasReused = wasReused;
     }
 
     public T Connection
         => _connection ?? throw new ObjectDisposedException(nameof(ConnectionLock<T>));
+
+    /// <summary>
+    /// True when the connection was taken from the idle pool rather than freshly
+    /// created. A reused connection may have been closed server-side while idle,
+    /// so its first failure should not count against provider health or retry budgets.
+    /// </summary>
+    public bool WasReused { get; }
 
     /// <summary>
     /// Marks the underlying connection to be replaced. When this lock is disposed,

@@ -102,6 +102,7 @@ public class MultiProviderNntpClient(List<MultiConnectionNntpClient> providers) 
                     responses[index] = ResolveBatchResponseAsync(
                         primaryBatch.Responses[index],
                         segmentIds[index],
+                        provider,
                         fallbackProviders,
                         previousFallbackCompletion,
                         fallbackCompletion,
@@ -133,6 +134,7 @@ public class MultiProviderNntpClient(List<MultiConnectionNntpClient> providers) 
     private static async Task<UsenetDecodedBodyResponse> ResolveBatchResponseAsync(
         Task<UsenetDecodedBodyResponse> primaryResponse,
         SegmentId segmentId,
+        MultiConnectionNntpClient primaryProvider,
         IReadOnlyList<MultiConnectionNntpClient> fallbackProviders,
         Task previousFallbackCompletion,
         TaskCompletionSource fallbackCompletion,
@@ -158,15 +160,25 @@ public class MultiProviderNntpClient(List<MultiConnectionNntpClient> providers) 
                 return response;
             }
 
-            if (response != null &&
-                response.ResponseType != UsenetResponseType.NoArticleWithThatMessageId)
+            // Only a clean 430 proves the primary provider is missing the article.
+            // Anything else (a faulted response task, or a stale connection's buffered
+            // goodbye line such as "400 idle timeout") is a connection-level failure:
+            // retry on the primary provider with another connection before falling back.
+            var retryProviders = fallbackProviders;
+            if (response?.ResponseType != UsenetResponseType.NoArticleWithThatMessageId)
             {
-                throw new UsenetArticleNotFoundException(segmentId);
+                if (response != null)
+                {
+                    lastException = ExceptionDispatchInfo.Capture(
+                        new UsenetUnexpectedResponseException(segmentId, response.ResponseMessage));
+                }
+
+                retryProviders = [primaryProvider, .. fallbackProviders];
             }
 
             await previousFallbackCompletion.WaitAsync(cancellationToken)
                 .ConfigureAwait(false);
-            foreach (var provider in fallbackProviders)
+            foreach (var provider in retryProviders)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 coordinator.AddTransfer();
@@ -220,7 +232,7 @@ public class MultiProviderNntpClient(List<MultiConnectionNntpClient> providers) 
             }
 
             lastException?.Throw();
-            throw new UsenetArticleNotFoundException(segmentId);
+            throw new UsenetArticleNotFoundException(segmentId, response?.ResponseMessage);
         }
         catch
         {

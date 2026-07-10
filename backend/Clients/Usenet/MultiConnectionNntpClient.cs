@@ -131,7 +131,7 @@ public class MultiConnectionNntpClient(
     )
     {
         var retryCount = 1;
-        while (retryCount >= 0)
+        while (true)
         {
             ConnectionLock<INntpClient>? connectionLock = null;
             var deferredCallback = new DeferredArticleBodyCallback();
@@ -178,9 +178,21 @@ public class MultiConnectionNntpClient(
             catch (Exception e)
             {
                 deferredCallback.Discard();
-                circuitBreaker.RecordFailure();
+                var wasReused = connectionLock?.WasReused ?? false;
+                if (!wasReused) circuitBreaker.RecordFailure();
                 LogException(() => connectionLock?.Replace());
                 LogException(() => connectionLock?.Dispose());
+
+                // A pooled connection may have been closed server-side while idle;
+                // its failure says nothing about provider health. Drain and retry.
+                if (wasReused)
+                {
+                    Log.Debug(e,
+                        "Pooled connection for provider {Provider} failed pipelined NNTP BODY commands. Retrying with another connection.",
+                        providerName);
+                    continue;
+                }
+
                 if (retryCount > 0)
                 {
                     Log.Debug(e,
@@ -197,8 +209,6 @@ public class MultiConnectionNntpClient(
                 throw;
             }
         }
-
-        throw new InvalidOperationException("Unreachable code");
     }
 
     public override Task<UsenetDecodedArticleResponse> DecodedArticleAsync
@@ -227,7 +237,7 @@ public class MultiConnectionNntpClient(
         int retryCount = 1
     ) where T : UsenetResponse
     {
-        while (retryCount >= 0)
+        while (true)
         {
             ConnectionLock<INntpClient>? connectionLock = null;
             try
@@ -282,9 +292,19 @@ public class MultiConnectionNntpClient(
             catch (Exception e)
             {
                 deferredCallback.Discard();
-                circuitBreaker.RecordFailure();
+                var wasReused = connectionLock?.WasReused ?? false;
+                if (!wasReused) circuitBreaker.RecordFailure();
                 LogException(() => connectionLock?.Replace());
                 LogException(() => connectionLock?.Dispose());
+
+                // A pooled connection may have been closed server-side while idle;
+                // its failure says nothing about provider health. Drain and retry.
+                if (wasReused)
+                {
+                    Log.Debug(e, "Pooled connection for provider {Provider} failed nntp {Command} command. Retrying with another connection.", providerName, name);
+                    continue;
+                }
+
                 if (retryCount > 0)
                 {
                     Log.Debug(e, "Error executing nntp {Command} command for provider {Provider}. Retrying with a new connection.", name, providerName);
@@ -337,9 +357,6 @@ public class MultiConnectionNntpClient(
 
             return result!;
         }
-
-        Log.Error("Unreachable code reached");
-        throw new InvalidOperationException("Unreachable code ");
     }
 
     private static void LogException(Action? action)

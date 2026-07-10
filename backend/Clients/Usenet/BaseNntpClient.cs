@@ -65,7 +65,7 @@ public class BaseNntpClient : NntpClient
         var headResponse = await _client.HeadAsync(segmentId, cancellationToken);
 
         if (headResponse.ResponseType != UsenetResponseType.ArticleRetrievedHeadFollows)
-            throw new UsenetArticleNotFoundException(segmentId);
+            throw CreateArticleFetchException(segmentId, headResponse);
 
         return new UsenetHeadResponse()
         {
@@ -96,7 +96,7 @@ public class BaseNntpClient : NntpClient
             segmentId, onConnectionReadyAgain, cancellationToken);
 
         if (bodyResponse.ResponseType != UsenetResponseType.ArticleRetrievedBodyFollows)
-            throw new UsenetArticleNotFoundException(segmentId);
+            throw CreateArticleFetchException(segmentId, bodyResponse);
 
         return new UsenetDecodedBodyResponse()
         {
@@ -137,7 +137,7 @@ public class BaseNntpClient : NntpClient
         var articleResponse = await _client.ArticleAsync(segmentId, onConnectionReadyAgain, cancellationToken);
 
         if (articleResponse.ResponseType != UsenetResponseType.ArticleRetrievedHeadAndBodyFollow)
-            throw new UsenetArticleNotFoundException(segmentId);
+            throw CreateArticleFetchException(segmentId, articleResponse);
 
         return new UsenetDecodedArticleResponse()
         {
@@ -152,6 +152,18 @@ public class BaseNntpClient : NntpClient
     public override Task<UsenetDateResponse> DateAsync(CancellationToken cancellationToken)
     {
         return _client.DateAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Only a clean 430 means the article is missing. Anything else (e.g. a
+    /// buffered "400 idle timeout" from a connection the server already closed)
+    /// is a connection-level problem and must be retryable.
+    /// </summary>
+    private static Exception CreateArticleFetchException(SegmentId segmentId, UsenetResponse response)
+    {
+        return response.ResponseType == UsenetResponseType.NoArticleWithThatMessageId
+            ? new UsenetArticleNotFoundException(segmentId, response.ResponseMessage)
+            : new UsenetUnexpectedResponseException(segmentId, response.ResponseMessage);
     }
 
     public override void Dispose()
