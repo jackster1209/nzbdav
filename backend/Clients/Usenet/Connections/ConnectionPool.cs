@@ -55,7 +55,9 @@ public sealed class ConnectionPool<T> : IDisposable, IAsyncDisposable
 
         _factory = connectionFactory
                    ?? throw new ArgumentNullException(nameof(connectionFactory));
-        IdleTimeout = idleTimeout ?? TimeSpan.FromSeconds(30);
+        IdleTimeout = idleTimeout ?? TimeSpan.FromMinutes(5);
+        if (IdleTimeout <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(idleTimeout));
 
         _maxConnections = maxConnections;
         _gate = new PrioritizedSemaphore(maxConnections, maxConnections);
