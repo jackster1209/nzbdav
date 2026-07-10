@@ -208,6 +208,7 @@ Do not accumulate a large uncommitted diff across unrelated areas.
 | `pre-release.yml` | Pushes to `main` (except release commits) | Publishes `ghcr.io/.../nzbdav:pre-release` |
 | `release.yml` | Push to `main` | release-please versioning |
 | `release.yml` | GitHub `release: published` or manual dispatch | Publishes semver Docker tags to GHCR |
+| `dependency-submission.yml` | Push/PR to `main` | Dependency graph submission (NuGet + npm) with GitHub Packages auth |
 | `docker-build-push.yml` | Reusable (called by pre-release/release) | Multi-arch Docker build with GHA cache |
 
 Docker image builds are shared via the reusable workflow. Branch and dependabot image pipelines were removed — PRs are validated by `ci.yml` instead of publishing throwaway images.
@@ -220,6 +221,7 @@ Docker image builds are shared via the reusable workflow. Branch and dependabot 
 - To republish images for an existing release (e.g. after fixing CI), run **Release** workflow manually with the `version` input (e.g. `0.6.5`).
 - Pre-release Docker images (`:pre-release`) build on every `main` push except `chore(main): release` commits.
 - Ensure `nzbdav/nzbdav` has **Read** access on the UsenetSharp GitHub Package (Package settings → Manage Actions access); without it Docker builds fail restoring the private NuGet feed.
+- Disable GitHub's **Automatic dependency submission** in repo settings once `dependency-submission.yml` is active (the built-in workflow cannot auth to GitHub Packages).
 
 ## Coding guidelines
 
