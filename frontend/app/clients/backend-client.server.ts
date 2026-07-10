@@ -1,3 +1,10 @@
+export class WebdavDirectoryNotFoundError extends Error {
+    public constructor(public readonly directory: string) {
+        super("The WebDAV directory does not exist.");
+        this.name = "WebdavDirectoryNotFoundError";
+    }
+}
+
 class BackendClient {
     public async isOnboarding(): Promise<boolean> {
         const url = process.env.BACKEND_URL + "/api/is-onboarding";
@@ -134,7 +141,11 @@ class BackendClient {
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to list webdav directory: ${(await response.json()).error}`);
+            const error = (await response.json()).error;
+            if (response.status === 400 && error === "The directory does not exist.") {
+                throw new WebdavDirectoryNotFoundError(directory);
+            }
+            throw new Error(`Failed to list webdav directory: ${error}`);
         }
         const data = await response.json();
         return data.items;
