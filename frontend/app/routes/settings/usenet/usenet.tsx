@@ -2,6 +2,7 @@ import styles from "./usenet.module.css"
 import { type Dispatch, type SetStateAction, useState, useCallback, useEffect, useMemo } from "react";
 import { Button } from "react-bootstrap";
 import { receiveMessage } from "~/utils/websocket-util";
+import { isMaskedSecret } from "~/utils/config-mask";
 
 const usenetConnectionsTopic = {'cxs': 'state'};
 
@@ -49,7 +50,10 @@ function parseProviderConfig(jsonString: string): UsenetProviderConfig {
         if (!jsonString || jsonString.trim() === "") {
             return { Providers: [] };
         }
-        return JSON.parse(jsonString);
+        const parsed = JSON.parse(jsonString);
+        return parsed && Array.isArray(parsed.Providers)
+            ? parsed
+            : { Providers: [] };
     } catch {
         return { Providers: [] };
     }
@@ -300,6 +304,7 @@ function ProviderModal({ show, provider, onClose, onSave }: ProviderModalProps) 
     const [isTestingConnection, setIsTestingConnection] = useState(false);
     const [connectionTested, setConnectionTested] = useState(false);
     const [testError, setTestError] = useState<string | null>(null);
+    const passIsMasked = isMaskedSecret(pass);
 
     // Reset form when modal opens or provider changes
     useEffect(() => {
@@ -331,6 +336,8 @@ function ProviderModal({ show, provider, onClose, onSave }: ProviderModalProps) 
     }, [show, onClose]);
 
     const handleTestConnection = useCallback(async () => {
+        if (passIsMasked) return;
+
         setIsTestingConnection(true);
         setTestError(null);
 
@@ -363,7 +370,7 @@ function ProviderModal({ show, provider, onClose, onSave }: ProviderModalProps) 
         } finally {
             setIsTestingConnection(false);
         }
-    }, [host, port, useSsl, user, pass]);
+    }, [host, port, useSsl, user, pass, passIsMasked]);
 
     const handleSave = useCallback(() => {
         onSave({
@@ -389,7 +396,7 @@ function ProviderModal({ show, provider, onClose, onSave }: ProviderModalProps) 
         && pass.trim() !== ""
         && isPositiveInteger(maxConnections);
 
-    const canSave = isFormValid && (connectionTested || type == ProviderType.Disabled);
+    const canSave = isFormValid && (connectionTested || passIsMasked || type == ProviderType.Disabled);
 
     if (!show) return null;
 

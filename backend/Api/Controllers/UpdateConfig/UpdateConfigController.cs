@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NzbWebDAV.Config;
 using NzbWebDAV.Database;
 using NzbWebDAV.Database.Models;
+using NzbWebDAV.Utils;
 
 namespace NzbWebDAV.Api.Controllers.UpdateConfig;
 
@@ -12,17 +13,36 @@ public class UpdateConfigController(DavDatabaseClient dbClient, ConfigManager co
 {
     private async Task<UpdateConfigResponse> UpdateConfig(UpdateConfigRequest request)
     {
-        // 1. Retrieve all ConfigItems from the database that match the ConfigNames in the request
         var configNames = request.ConfigItems.Select(x => x.ConfigName).ToHashSet();
         var existingItems = await dbClient.Ctx.ConfigItems
             .Where(c => configNames.Contains(c.ConfigName))
             .ToListAsync(HttpContext.RequestAborted).ConfigureAwait(false);
 
-        // 2. Split the items into those that need to be updated and those that need to be inserted
         var existingItemsDict = existingItems.ToDictionary(i => i.ConfigName);
+        var secretMasker = new ConfigSecretMasker(
+            EnvironmentUtil.GetRequiredVariable("FRONTEND_BACKEND_API_KEY"));
+        var resolvedItems = request.ConfigItems.Select(item =>
+        {
+            var existingValue = existingItemsDict.GetValueOrDefault(item.ConfigName)?.ConfigValue;
+            var resolvedValue = secretMasker.ResolveForUpdate(
+                item.ConfigName,
+                item.ConfigValue,
+                existingValue);
+
+            if (item.ConfigName == "webdav.pass" &&
+                !ConfigSecretMasker.IsMaskToken(item.ConfigValue))
+                resolvedValue = PasswordUtil.Hash(resolvedValue);
+
+            return new ConfigItem
+            {
+                ConfigName = item.ConfigName,
+                ConfigValue = resolvedValue
+            };
+        }).ToList();
+
         var itemsToUpdate = new List<ConfigItem>();
         var itemsToInsert = new List<ConfigItem>();
-        foreach (var item in request.ConfigItems)
+        foreach (var item in resolvedItems)
         {
             if (existingItemsDict.TryGetValue(item.ConfigName, out ConfigItem? existingItem))
             {
@@ -35,17 +55,13 @@ public class UpdateConfigController(DavDatabaseClient dbClient, ConfigManager co
             }
         }
 
-        // 3. Perform bulk insert and bulk update
         dbClient.Ctx.ConfigItems.AddRange(itemsToInsert);
         dbClient.Ctx.ConfigItems.UpdateRange(itemsToUpdate);
 
-        // 4. Save changes in one call
         await dbClient.Ctx.SaveChangesAsync(HttpContext.RequestAborted).ConfigureAwait(false);
 
-        // 5. Update the ConfigManager
-        configManager.UpdateValues(request.ConfigItems);
+        configManager.UpdateValues(resolvedItems);
 
-        // return
         return new UpdateConfigResponse { Status = true };
     }
 

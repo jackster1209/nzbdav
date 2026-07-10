@@ -1,6 +1,7 @@
 import { Button, Form, Card, InputGroup, Spinner } from "react-bootstrap";
 import styles from "./arrs.module.css"
 import { type Dispatch, type SetStateAction, useState, useCallback, useEffect } from "react";
+import { isMaskedSecret } from "~/utils/config-mask";
 
 type ArrsSettingsProps = {
     config: Record<string, string>
@@ -21,6 +22,25 @@ interface ArrConfig {
     RadarrInstances: ConnectionDetails[];
     SonarrInstances: ConnectionDetails[];
     QueueRules: QueueRule[];
+}
+
+function parseArrConfig(value: string): ArrConfig {
+    try {
+        const parsed = JSON.parse(value);
+        if (parsed &&
+            Array.isArray(parsed.RadarrInstances) &&
+            Array.isArray(parsed.SonarrInstances) &&
+            Array.isArray(parsed.QueueRules)) {
+            return parsed;
+        }
+    } catch {
+    }
+
+    return {
+        RadarrInstances: [],
+        SonarrInstances: [],
+        QueueRules: [],
+    };
 }
 
 const queueStatusMessages = [
@@ -87,7 +107,7 @@ const queueStatusMessages = [
 ];
 
 export function ArrsSettings({ config, setNewConfig }: ArrsSettingsProps) {
-    const arrConfig = JSON.parse(config["arr.instances"]);
+    const arrConfig = parseArrConfig(config["arr.instances"]);
 
     const updateConfig = useCallback((newArrConfig: ArrConfig) => {
         setNewConfig({ ...config, "arr.instances": JSON.stringify(newArrConfig) });
@@ -265,7 +285,7 @@ function InstanceForm({ instance, index, type, onUpdate, onRemove }: InstanceFor
     }, [instance.Host, instance.ApiKey]);
 
     const testConnection = useCallback(async (host: string, apiKey: string) => {
-        if (!host.trim() || !apiKey.trim()) {
+        if (!host.trim() || !apiKey.trim() || isMaskedSecret(apiKey)) {
             return;
         }
 
@@ -311,7 +331,7 @@ function InstanceForm({ instance, index, type, onUpdate, onRemove }: InstanceFor
                             placeholder={type === "radarr" ? "http://localhost:7878" : "http://localhost:8989"}
                             value={instance.Host}
                             onChange={e => onUpdate(index, 'Host', e.target.value)} />
-                        {instance.Host.trim() && instance.ApiKey.trim() && (
+                        {instance.Host.trim() && instance.ApiKey.trim() && !isMaskedSecret(instance.ApiKey) && (
                             <Button
                                 variant={connectionState === 'success' ? 'success' :
                                     connectionState === 'error' ? 'danger' : 'secondary'}

@@ -1,6 +1,7 @@
 import { Button, Form, InputGroup, Spinner } from "react-bootstrap";
 import styles from "./rclone.module.css"
 import { type Dispatch, type SetStateAction, useState, useCallback, useEffect } from "react";
+import { isMaskedSecret } from "~/utils/config-mask";
 
 type RcloneSettingsProps = {
     config: Record<string, string>
@@ -16,7 +17,7 @@ export function RcloneSettings({ config, setNewConfig }: RcloneSettingsProps) {
 
     const testConnection = useCallback(async () => {
         const host = config["rclone.host"];
-        if (!host?.trim()) {
+        if (!host?.trim() || isMaskedSecret(config["rclone.pass"])) {
             return;
         }
 
@@ -71,7 +72,7 @@ export function RcloneSettings({ config, setNewConfig }: RcloneSettingsProps) {
                         placeholder="http://localhost:5572"
                         value={config["rclone.host"]}
                         onChange={e => setNewConfig({ ...config, "rclone.host": e.target.value })} />
-                    {config["rclone.host"]?.trim() && (
+                    {config["rclone.host"]?.trim() && !isMaskedSecret(config["rclone.pass"]) && (
                         <Button
                             variant={connectionState === 'success' ? 'success' :
                                 connectionState === 'error' ? 'danger' : 'secondary'}
