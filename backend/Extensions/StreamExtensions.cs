@@ -14,7 +14,7 @@ public static class StreamExtensions
     {
         if (count == 0) return;
         var remaining = count;
-        var throwaway = ArrayPool<byte>.Shared.Rent(1024);
+        var throwaway = ArrayPool<byte>.Shared.Rent(64 * 1024);
         try
         {
             while (remaining > 0)
