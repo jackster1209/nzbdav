@@ -18,11 +18,13 @@ namespace NzbWebDAV.Services;
 /// </summary>
 public class HealthCheckService : BackgroundService
 {
+    private const int MaximumMissingSegmentIds = 100_000;
     private readonly ConfigManager _configManager;
     private readonly INntpClient _usenetClient;
     private readonly WebsocketManager _websocketManager;
 
     private static readonly HashSet<string> _missingSegmentIds = [];
+    private static readonly Queue<string> _missingSegmentOrder = [];
 
     public HealthCheckService
     (
@@ -37,9 +39,14 @@ public class HealthCheckService : BackgroundService
 
         _configManager.OnConfigChanged += (_, configEventArgs) =>
         {
-            // when usenet host changes, clear the missing segments cache
-            if (!configEventArgs.ChangedConfig.ContainsKey("usenet.host")) return;
-            lock (_missingSegmentIds) _missingSegmentIds.Clear();
+            // when provider settings change, clear the missing segments cache
+            if (!configEventArgs.ChangedConfig.ContainsKey("usenet.providers") &&
+                !configEventArgs.ChangedConfig.ContainsKey("usenet.host")) return;
+            lock (_missingSegmentIds)
+            {
+                _missingSegmentIds.Clear();
+                _missingSegmentOrder.Clear();
+            }
         };
     }
 
@@ -156,8 +163,15 @@ public class HealthCheckService : BackgroundService
             _ = _websocketManager.SendMessage(WebsocketTopic.HealthItemProgress, $"{davItem.Id}|100");
             _ = _websocketManager.SendMessage(WebsocketTopic.HealthItemProgress, $"{davItem.Id}|done");
             if (FilenameUtil.IsImportantFileType(davItem.Name))
+            {
                 lock (_missingSegmentIds)
-                    _missingSegmentIds.Add(e.SegmentId);
+                {
+                    if (_missingSegmentIds.Add(e.SegmentId))
+                        _missingSegmentOrder.Enqueue(e.SegmentId);
+                    while (_missingSegmentIds.Count > MaximumMissingSegmentIds)
+                        _missingSegmentIds.Remove(_missingSegmentOrder.Dequeue());
+                }
+            }
 
             // when usenet article is missing, perform repairs
             await Repair(davItem, dbClient, ct).ConfigureAwait(false);
