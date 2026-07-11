@@ -49,7 +49,7 @@ export function LeftNavigation({
                         Changelog
                     </Link>
                 </div>
-                <div className="font-mono text-[11px]">v{version || "unknown"}</div>
+                <div className="font-mono text-[11px]">{version || "unknown"}</div>
                 {!isFrontendAuthDisabled && (
                     <Form method="post" action="/logout">
                         <input name="confirm" value="true" type="hidden" />
