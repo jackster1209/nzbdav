@@ -31,6 +31,7 @@ const defaultConfig = {
     "usenet.max-download-connections": "15",
     "usenet.streaming-priority": "80",
     "usenet.article-buffer-size": "40",
+    "usenet.pipelined-body-requests": "true",
     "webdav.user": "admin",
     "webdav.pass": "",
     "webdav.show-hidden-files": "false",

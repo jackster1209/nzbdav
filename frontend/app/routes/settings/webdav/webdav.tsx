@@ -92,6 +92,20 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
             <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm text-slate-300">
                     <Checkbox
+                    id="pipelined-body-requests-checkbox"
+                    aria-describedby="pipelined-body-requests-help"
+                    checked={config["usenet.pipelined-body-requests"] === "true"}
+                    onChange={e => setNewConfig({ ...config, "usenet.pipelined-body-requests": "" + e.target.checked })} />
+                    <span>Pipelined article downloads</span>
+                </label>
+                <p className="text-xs leading-relaxed text-slate-400" id="pipelined-body-requests-help">
+                    Fetch articles in small NNTP batches for smoother streaming. Disable this to use the legacy one-at-a-time API while retaining the configured article buffer.
+                </p>
+            </div>
+            <hr />
+            <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                    <Checkbox
                     id="readonly-checkbox"
                     aria-describedby="readonly-help"
                     checked={config["webdav.enforce-readonly"] === "true"}
@@ -140,6 +154,7 @@ export function isWebdavSettingsUpdated(config: Record<string, string>, newConfi
         || config["usenet.max-download-connections"] !== newConfig["usenet.max-download-connections"]
         || config["usenet.streaming-priority"] !== newConfig["usenet.streaming-priority"]
         || config["usenet.article-buffer-size"] !== newConfig["usenet.article-buffer-size"]
+        || config["usenet.pipelined-body-requests"] !== newConfig["usenet.pipelined-body-requests"]
         || config["webdav.show-hidden-files"] !== newConfig["webdav.show-hidden-files"]
         || config["webdav.enforce-readonly"] !== newConfig["webdav.enforce-readonly"]
         || config["webdav.preview-par2-files"] !== newConfig["webdav.preview-par2-files"]
