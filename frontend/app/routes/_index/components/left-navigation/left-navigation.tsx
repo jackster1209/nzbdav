@@ -51,17 +51,7 @@ export function LeftNavigation({
                         Changelog
                     </Link>
                 </div>
-                <div className="font-mono text-[11px]">{version || "unknown"}</div>
-                {updateAvailable && (
-                    <Link
-                        to={updateAvailable.releaseUrl}
-                        className="mt-1 block text-[11px] text-blue-400 hover:text-blue-300"
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        Update available · v{updateAvailable.latestVersion}
-                    </Link>
-                )}
+                <VersionStatusCard version={version} updateAvailable={updateAvailable} />
                 {!isFrontendAuthDisabled && (
                     <Form method="post" action="/logout">
                         <input name="confirm" value="true" type="hidden" />
@@ -77,6 +67,55 @@ export function LeftNavigation({
             </footer>
         </div>
     );
+}
+
+function VersionStatusCard({
+    version,
+    updateAvailable,
+}: {
+    version?: string,
+    updateAvailable?: { latestVersion: string; releaseUrl: string } | null,
+}) {
+    const displayVersion = version || "unknown";
+    const hasUpdate = Boolean(updateAvailable);
+
+    const content = (
+        <>
+            <Icon name="hard_drive" className="!text-[22px] shrink-0" />
+            <div className="min-w-0 flex-1 truncate">
+                <div className="font-bold text-white">NzbDav Stable</div>
+                <div className="truncate font-mono text-[11px] tracking-wide text-slate-400">
+                    {updateAvailable
+                        ? `${displayVersion} → v${updateAvailable.latestVersion}`
+                        : displayVersion}
+                </div>
+            </div>
+            {updateAvailable && (
+                <Icon name="arrow_circle_up" className="!text-[22px] shrink-0 text-blue-400" />
+            )}
+        </>
+    );
+
+    const className = `flex w-full items-center gap-2 rounded-lg border p-2 text-xs transition-all duration-200 ${
+        hasUpdate
+            ? "border-blue-500/50 bg-blue-500/15 text-slate-200 hover:border-blue-400/70 hover:bg-blue-500/25"
+            : "border-slate-700/70 bg-slate-900 text-slate-300"
+    }`;
+
+    if (updateAvailable) {
+        return (
+            <Link
+                to={updateAvailable.releaseUrl}
+                className={className}
+                target="_blank"
+                rel="noreferrer"
+            >
+                {content}
+            </Link>
+        );
+    }
+
+    return <div className={className}>{content}</div>;
 }
 
 function Item({ target, icon, children }: { target: string, icon: string, children: React.ReactNode }) {
