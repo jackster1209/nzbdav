@@ -13,6 +13,7 @@
     "start": "node dist-node/server.js",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "react-router typegen && tsc -b"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "tailwindcss": "^4.2.1",
