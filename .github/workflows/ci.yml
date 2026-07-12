@@ -30,6 +30,11 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Audit production dependencies
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Lint
         working-directory: frontend
         run: npm run lint
@@ -75,6 +80,10 @@ jobs:
 
       - name: Restore backend
         run: dotnet restore backend/NzbWebDAV.csproj && dotnet restore tests/NzbWebDAV.Tests/NzbWebDAV.Tests.csproj
+
+      - name: List vulnerable packages
+        continue-on-error: true
+        run: dotnet list backend/NzbWebDAV.csproj package --vulnerable --include-transitive
 
       - name: Build backend
         working-directory: backend
