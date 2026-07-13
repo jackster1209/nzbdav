@@ -6,13 +6,25 @@ namespace NzbWebDAV.Database.Interceptors;
 
 /// <summary>
 /// Applies metrics-tuned PRAGMAs: WAL, relaxed durability (NORMAL — losing one
-/// second of metrics on a crash is acceptable), memory temp store, a 256 MB mmap
-/// window, a 64 MB page cache, and a capped WAL journal. Incremental auto-vacuum
-/// lets the retention sweep reclaim space without a full VACUUM.
+/// second of metrics on a crash is acceptable), busy timeout, memory temp store,
+/// a 256 MB mmap window, a 64 MB page cache, and a capped WAL journal. Incremental
+/// auto-vacuum lets the retention sweep reclaim space without a full VACUUM.
 /// </summary>
 public class SqliteMetricsPragmas : DbConnectionInterceptor
 {
     public override void ConnectionOpened(DbConnection connection, ConnectionEndEventData eventData)
+        => ApplyPragmas(connection);
+
+    public override Task ConnectionOpenedAsync(
+        DbConnection connection,
+        ConnectionEndEventData eventData,
+        CancellationToken cancellationToken = default)
+    {
+        ApplyPragmas(connection);
+        return Task.CompletedTask;
+    }
+
+    private static void ApplyPragmas(DbConnection connection)
     {
         try
         {
@@ -22,6 +34,7 @@ public class SqliteMetricsPragmas : DbConnectionInterceptor
             {
                 // Still apply read-only-safe settings that do not rewrite the DB header.
                 command.CommandText =
+                    "PRAGMA busy_timeout = 5000;" +
                     "PRAGMA temp_store = MEMORY;" +
                     "PRAGMA mmap_size = 268435456;" +
                     "PRAGMA cache_size = -65536;";
@@ -34,6 +47,7 @@ public class SqliteMetricsPragmas : DbConnectionInterceptor
                 command.CommandText =
                     "PRAGMA journal_mode = WAL;" +
                     "PRAGMA synchronous = NORMAL;" +
+                    "PRAGMA busy_timeout = 5000;" +
                     "PRAGMA temp_store = MEMORY;" +
                     "PRAGMA mmap_size = 268435456;" +
                     "PRAGMA cache_size = -65536;" +
