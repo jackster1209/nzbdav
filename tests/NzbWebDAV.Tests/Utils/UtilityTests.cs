@@ -76,6 +76,17 @@ public class UtilityTests
     }
 
     [Fact]
+    public void PasswordVerify_CacheHitsPreserveCorrectness()
+    {
+        var hash = PasswordUtil.Hash("secret", "account");
+
+        Assert.True(PasswordUtil.Verify(hash, "secret", "account"));
+        Assert.True(PasswordUtil.Verify(hash, "secret", "account"));
+        Assert.False(PasswordUtil.Verify(hash, "wrong", "account"));
+        Assert.False(PasswordUtil.Verify(hash, "wrong", "account"));
+    }
+
+    [Fact]
     public void InterpolationSearch_FindsIrregularByteRange()
     {
         LongRange[] ranges =
