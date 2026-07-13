@@ -121,6 +121,13 @@ public sealed class MigrationProgress
 
     public static bool IsSlow(string migrationId) => SlowMigrations.Contains(migrationId);
 
+    /// <summary>
+    /// True when there is nothing user-visible to report: no pending EF migrations
+    /// and vacuum is disabled. The migration runner skips the status server in this case.
+    /// </summary>
+    public static bool IsIdleMaintenance(int pendingMigrationCount, bool vacuumEnabled) =>
+        pendingMigrationCount == 0 && !vacuumEnabled;
+
     private sealed class StepState(string id, string name, bool slow)
     {
         public string Id { get; } = id;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { backendClient } from "./backend-client.server";
+import { backendClient, BackendUnavailableError } from "./backend-client.server";
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -199,11 +199,23 @@ describe("BackendClient", () => {
     });
   });
 
-  it("includes the backend error when a request fails", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "unavailable" }, 503));
+  it("includes the backend error when a non-503 request fails", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: "bad request" }, 400));
 
     await expect(backendClient.getQueue(1)).rejects.toThrow(
-      "Failed to get queue: unavailable",
+      "Failed to get queue: bad request",
     );
+  });
+
+  it("throws BackendUnavailableError when fetch fails", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
+
+    await expect(backendClient.isOnboarding()).rejects.toBeInstanceOf(BackendUnavailableError);
+  });
+
+  it("throws BackendUnavailableError on 503 migrating responses", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ status: "migrating" }, 503));
+
+    await expect(backendClient.isOnboarding()).rejects.toBeInstanceOf(BackendUnavailableError);
   });
 });

@@ -286,6 +286,17 @@ class Program
         var pending = (await databaseContext.Database.GetPendingMigrationsAsync(ct).ConfigureAwait(false)).ToList();
         var vacuumEnabled = await IsDatabaseStartupVacuumEnabledAsync().ConfigureAwait(false);
 
+        // Routine restarts with nothing to do: skip the status server and its
+        // grace delay so Docker does not bind/unbind :8080 just to say "idle".
+        if (MigrationProgress.IsIdleMaintenance(pending.Count, vacuumEnabled))
+        {
+            Log.Information("No pending database migrations");
+            await using var metricsContext = new MetricsDbContext();
+            await metricsContext.Database.MigrateAsync(ct).ConfigureAwait(false);
+            Log.Information("Database migrations completed");
+            return;
+        }
+
         // Build the ordered list of maintenance steps: each pending migration,
         // then the metrics database, then the optional vacuum.
         var steps = new List<MigrationProgress.MigrationStep>();

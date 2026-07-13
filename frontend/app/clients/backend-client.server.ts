@@ -5,6 +5,14 @@ export class WebdavDirectoryNotFoundError extends Error {
     }
 }
 
+/** Thrown when the backend is unreachable or still in the migration handoff. */
+export class BackendUnavailableError extends Error {
+    public constructor(message = "Backend temporarily unavailable") {
+        super(message);
+        this.name = "BackendUnavailableError";
+    }
+}
+
 /** Builds a FormData body from a list of [name, value] entries. */
 function form(...entries: [string, string | Blob, string?][]): FormData {
     const data = new FormData();
@@ -21,16 +29,35 @@ function form(...entries: [string, string | Blob, string?][]): FormData {
  * prefixed with `errorPrefix` and suffixed with the backend's reported error.
  */
 async function call(path: string, errorPrefix: string, init?: RequestInit): Promise<any> {
-    const response = await fetch(process.env.BACKEND_URL + path, {
-        ...init,
-        headers: {
-            "x-api-key": process.env.FRONTEND_BACKEND_API_KEY || "",
-            ...(init?.headers ?? {}),
-        },
-    });
+    let response: Response;
+    try {
+        response = await fetch(process.env.BACKEND_URL + path, {
+            ...init,
+            headers: {
+                "x-api-key": process.env.FRONTEND_BACKEND_API_KEY || "",
+                ...(init?.headers ?? {}),
+            },
+        });
+    } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new BackendUnavailableError(`${errorPrefix}: ${detail}`);
+    }
 
     if (!response.ok) {
-        throw new Error(`${errorPrefix}: ${(await response.json()).error}`);
+        const body = await response.json().catch(() => null) as
+            | { error?: unknown; status?: unknown }
+            | null;
+        if (response.status === 503 || body?.status === "migrating") {
+            throw new BackendUnavailableError(
+                `${errorPrefix}: backend is starting or migrating`,
+            );
+        }
+
+        const backendError =
+            body && typeof body === "object" && "error" in body
+                ? String(body.error ?? "unknown error")
+                : `HTTP ${response.status}`;
+        throw new Error(`${errorPrefix}: ${backendError}`);
     }
 
     return response.json();

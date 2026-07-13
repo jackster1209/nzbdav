@@ -21,10 +21,42 @@ export type MigrationStatus = {
   steps: MigrationStep[];
 };
 
-function isMigrationStatus(value: unknown): value is MigrationStatus {
+export function isMigrationStatus(value: unknown): value is MigrationStatus {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return typeof v.state === "string" && Array.isArray(v.steps);
+}
+
+export type MigrationPollDecision =
+  | { action: "migrating"; status: MigrationStatus; reloadMs?: number }
+  | { action: "connecting"; reloadMs: number }
+  | { action: "fallback"; stopPolling: true };
+
+/** Pure decision helper for MigrationBoundary polling (testable without React). */
+export function decideMigrationStatusPoll(
+  httpStatus: number,
+  body: unknown,
+): MigrationPollDecision {
+  if (httpStatus >= 200 && httpStatus < 300) {
+    if (isMigrationStatus(body)) {
+      return {
+        action: "migrating",
+        status: body,
+        reloadMs: body.state === "completed" ? 1500 : undefined,
+      };
+    }
+    return { action: "fallback", stopPolling: true };
+  }
+
+  if (httpStatus === 404) {
+    return { action: "connecting", reloadMs: 1500 };
+  }
+
+  if (httpStatus === 502 || httpStatus === 503) {
+    return { action: "connecting", reloadMs: 5000 };
+  }
+
+  return { action: "fallback", stopPolling: true };
 }
 
 function formatDuration(ms: number): string {
@@ -65,6 +97,19 @@ export function MigrationBoundary({ fallback }: { fallback: FallbackProps }) {
 
   useEffect(() => {
     let cancelled = false;
+    let interval: number | undefined;
+
+    const stopPolling = () => {
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+        interval = undefined;
+      }
+    };
+
+    const scheduleReloadAndStop = (delayMs: number) => {
+      scheduleReload(delayMs);
+      stopPolling();
+    };
 
     const poll = async () => {
       try {
@@ -74,45 +119,39 @@ export function MigrationBoundary({ fallback }: { fallback: FallbackProps }) {
         });
         if (cancelled) return;
 
-        if (res.ok) {
-          const data = await res.json().catch(() => null);
-          if (cancelled) return;
-          if (isMigrationStatus(data)) {
-            seenMigration.current = true;
-            setStatus(data);
-            setPhase("migrating");
-            if (data.state === "completed") scheduleReload(1500);
-            return;
-          }
-          // 200 but not migration-shaped: the real backend answered, so this
-          // is a genuine error rather than the migration phase.
-          setPhase("fallback");
+        const body = res.ok ? await res.json().catch(() => null) : null;
+        if (cancelled) return;
+
+        const decision = decideMigrationStatusPoll(res.status, body);
+        if (decision.action === "migrating") {
+          seenMigration.current = true;
+          setStatus(decision.status);
+          setPhase("migrating");
+          if (decision.reloadMs !== undefined) scheduleReloadAndStop(decision.reloadMs);
           return;
         }
 
-        // The backend port is not serving yet (starting up or handing off
-        // from the migration process to the real backend). Reload periodically
-        // so the real app loads as soon as the backend is reachable.
-        if (res.status === 502 || res.status === 503) {
+        if (decision.action === "connecting") {
           setPhase("connecting");
-          scheduleReload(5000);
+          scheduleReloadAndStop(decision.reloadMs);
           return;
         }
 
         setPhase("fallback");
+        stopPolling();
       } catch {
         if (cancelled) return;
         // Network failure: nothing is listening on the backend port yet.
         setPhase("connecting");
-        scheduleReload(5000);
+        scheduleReloadAndStop(5000);
       }
     };
 
     poll();
-    const interval = window.setInterval(poll, 2000);
+    interval = window.setInterval(poll, 2000);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
     };
   }, [scheduleReload]);
 

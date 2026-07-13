@@ -1,5 +1,6 @@
 import type { RequestHandler } from "express";
 import { createColors } from "picocolors";
+import { isWithinBackendStartupGrace } from "./startup-grace";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -118,7 +119,12 @@ export const requestLogger: RequestHandler = (req, res, next) => {
       `${colorMethod(req.method)} ${req.originalUrl} `
       + `${colorStatus(res.statusCode)} ${color.dim(`${elapsedMs.toFixed(1)} ms`)}`;
 
-    if (res.statusCode >= 500) {
+    // During Docker's frontend-first startup window, proxied 502s are expected
+    // while the backend is still binding. Downgrade so they are not double-logged
+    // as ERR alongside the proxy error handler.
+    if (res.statusCode === 502 && isWithinBackendStartupGrace()) {
+      logger.debug(message);
+    } else if (res.statusCode >= 500) {
       logger.error(message);
     } else if (res.statusCode >= 400) {
       logger.warn(message);

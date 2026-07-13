@@ -8,9 +8,34 @@ import { shouldProxyToBackend } from "./proxy-path";
 import { logger } from "./logger";
 import { authMiddleware } from "~/auth/auth-middleware.server";
 import { setApiKeyForAuthenticatedRequests } from "./inject-api-key.server";
+import {
+  BACKEND_FAILURE_LOG_THROTTLE_MS,
+  isExpectedBackendConnectionError,
+  isWithinBackendStartupGrace,
+} from "./startup-grace";
 
 export const app = express();
 export const initializeWebsocketServer = websocketServer.initialize;
+
+let loggedStartupWait = false;
+let lastProxyFailureLogAt = 0;
+
+function logProxyFailure(message: string, error: unknown) {
+  const now = Date.now();
+  if (isExpectedBackendConnectionError(error) && isWithinBackendStartupGrace(now)) {
+    if (!loggedStartupWait) {
+      logger.info("Waiting for backend to start...");
+      loggedStartupWait = true;
+      lastProxyFailureLogAt = now;
+    }
+    return;
+  }
+
+  if (now - lastProxyFailureLogAt >= BACKEND_FAILURE_LOG_THROTTLE_MS) {
+    logger.warn(message, error);
+    lastProxyFailureLogAt = now;
+  }
+}
 
 // Proxy all webdav and api requests to the backend
 const forwardToBackend = createProxyMiddleware({
@@ -18,7 +43,7 @@ const forwardToBackend = createProxyMiddleware({
   changeOrigin: true,
   on: {
     error: (error, req, res) => {
-      logger.error(
+      logProxyFailure(
         `Backend proxy failed for ${req.method ?? "UNKNOWN"} ${req.url ?? "unknown URL"}`,
         error,
       );
