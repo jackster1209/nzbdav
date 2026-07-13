@@ -468,18 +468,20 @@ export function UsenetSettings({ config, setNewConfig }: UsenetSettingsProps) {
                                                 </svg>
                                             </button>
                                             <button
-                                                className={'rounded bg-white/10 p-1.5 text-slate-300 hover:bg-white/20'}
+                                                type="button"
+                                                className={styles["header-action-button"]}
                                                 onClick={() => handleEditProvider(index)}
                                                 title="Edit Provider"
                                             >
-                                                <Icon name="edit" className="!text-[18px]" />
+                                                <Icon name="edit" className="!text-[14px]" />
                                             </button>
                                             <button
-                                                className={`${'rounded bg-white/10 p-1.5 text-slate-300 hover:bg-white/20'} ${'hover:text-red-400'}`}
+                                                type="button"
+                                                className={`${styles["header-action-button"]} ${styles["delete"]}`}
                                                 onClick={() => handleDeleteProvider(index)}
                                                 title="Delete Provider"
                                             >
-                                                <Icon name="delete" className="!text-[18px]" />
+                                                <Icon name="delete" className="!text-[14px]" />
                                             </button>
                                         </div>
                                     </div>

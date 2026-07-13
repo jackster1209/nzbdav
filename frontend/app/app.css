@@ -76,6 +76,12 @@
     @apply transition-all duration-200 ease-in-out;
   }
 
+  /* Tailwind v4 Preflight uses cursor:default on buttons; restore pointer for clickables. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
   button:disabled {
     @apply cursor-not-allowed opacity-60;
   }
