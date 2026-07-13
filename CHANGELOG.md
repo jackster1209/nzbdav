@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.14](https://github.com/nzbdav/nzbdav/compare/v0.7.13...v0.7.14) (2026-07-13)
+
+
+### Bug Fixes
+
+* **ui:** avoid .server import in root ErrorBoundary ([e9984e6](https://github.com/nzbdav/nzbdav/commit/e9984e6145db5461371c47e1c19426b3a1ac27e1))
+* **ui:** unblock release Docker build and gate CI on frontend build ([c1af9a3](https://github.com/nzbdav/nzbdav/commit/c1af9a35ef9081d6086222cd614d62c6e5e7c081))
+
 ## [0.7.13](https://github.com/nzbdav/nzbdav/compare/v0.7.12...v0.7.13) (2026-07-13)
 
 
