@@ -20,8 +20,9 @@ public class MultiProviderNntpClient(
     MetricsWriter? metricsWriter = null,
     ProviderBytesTracker? bytesTracker = null,
     Func<bool>? cascadeEnabled = null
-) : NntpClient
+) : NntpClient, INntpConnectionStats
 {
+    public int InFlightConnections => providers.Sum(p => p.InFlightConnections);
     private readonly ProviderUsageTracker _usageTracker = usageTracker ?? new ProviderUsageTracker();
     private static readonly AsyncLocal<Guid?> ReadSessionScope = new();
     internal static Guid? CurrentReadSessionId => ReadSessionScope.Value;

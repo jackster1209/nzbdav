@@ -78,6 +78,7 @@ public class MultiConnectionNntpClient(
     public int IdleConnections => connectionPool.IdleConnections;
     public int ActiveConnections => connectionPool.ActiveConnections;
     public int AvailableConnections => connectionPool.AvailableConnections;
+    public int InFlightConnections => ActiveConnections + PendingSelections;
 
     private int _pendingSelections;
     public int PendingSelections => Volatile.Read(ref _pendingSelections);
