@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.7.16](https://github.com/nzbdav/nzbdav/compare/v0.7.15...v0.7.16) (2026-07-13)
+
+
+### Features
+
+* **ui:** add 1h Overview activity window ([a5aefe7](https://github.com/nzbdav/nzbdav/commit/a5aefe777bfdff8969623ab2a4bd431e49e1216b))
+* **ui:** Overview 1h window and queue/nav polish ([976d090](https://github.com/nzbdav/nzbdav/commit/976d09033a79646e635e42c6d7674d74ccde0ab0))
+
+
+### Bug Fixes
+
+* **api:** compare profile tokens in constant time ([7ed50fa](https://github.com/nzbdav/nzbdav/commit/7ed50fa44eedd45696f48006135d316b6e27b19d))
+* **api:** compare profile tokens in constant time ([22245ba](https://github.com/nzbdav/nzbdav/commit/22245ba00dd4f9a37dfff49908fb5719af226e19))
+* **api:** validate forwarded headers and sanitize proxy ([ac84f98](https://github.com/nzbdav/nzbdav/commit/ac84f9899b40f365073c41549e23e368c767cf2b))
+* **api:** validate forwarded headers and sanitize proxy ([1efa170](https://github.com/nzbdav/nzbdav/commit/1efa170d584271cd4ff020f2963e40f78dd96ac3))
+* **auth:** close username-enumeration timing oracle ([d31e0bf](https://github.com/nzbdav/nzbdav/commit/d31e0bfbc8583c7f4c84b1bcc985d0dbb45fba6c))
+* **auth:** close username-enumeration timing oracle ([6562cb1](https://github.com/nzbdav/nzbdav/commit/6562cb16267f94cd570f64963cf4aa787fc4e994))
+* **auth:** hmac-key password verification cache ([83f7f20](https://github.com/nzbdav/nzbdav/commit/83f7f20e4fbadbabbff1c6758ebc4a7f6afe7616))
+* **auth:** hmac-key password verification cache ([89610fa](https://github.com/nzbdav/nzbdav/commit/89610fa3ba617059713d62a818e8ddc1818b9c15))
+* **db:** return not-found for non-guid /.ids lookups ([4f3311e](https://github.com/nzbdav/nzbdav/commit/4f3311ee102e9310ca44b6a960800f706ddaac1a))
+* **health:** fix organized-links cache key and parse skips ([a7281fb](https://github.com/nzbdav/nzbdav/commit/a7281fb3bda090cf60ca34f626dd1576db711a2b))
+* **health:** floor NextHealthCheck to avoid hot-loops ([ce639d9](https://github.com/nzbdav/nzbdav/commit/ce639d908997296fd2a7994dd393bf80e52608e0))
+* **nntp:** drain replaced clients before disposal ([39dcaa3](https://github.com/nzbdav/nzbdav/commit/39dcaa31f01a88f6a534173b88151bcec6816a67))
+* **nntp:** drain replaced clients before disposal ([4700def](https://github.com/nzbdav/nzbdav/commit/4700def013a35a8fafac1b564c3cec79a92951ea))
+* **nntp:** drain test hook inline without background loop ([772d77d](https://github.com/nzbdav/nzbdav/commit/772d77db03ac47d588dca860e89bbbc5cf244412))
+* repair-path link cache, health hot-loops, and pool WS flood ([3aaae33](https://github.com/nzbdav/nzbdav/commit/3aaae3398a74a9e003ce403f566df30831850490))
+* **sab:** cap unbounded history responses ([1b2abd9](https://github.com/nzbdav/nzbdav/commit/1b2abd979ca68fe99effe8e3e7d87a118dea7512))
+* **sab:** cap unbounded history responses ([a619da0](https://github.com/nzbdav/nzbdav/commit/a619da096b69c0423d88d8c85dd17f4d56fc23ad))
+* **sab:** clamp negative history limits to zero ([9e87e4b](https://github.com/nzbdav/nzbdav/commit/9e87e4b18d34bd824f90710be9abfaa49fe27eb8))
+* **ui:** include proxy-path in node typecheck project ([7c7f05b](https://github.com/nzbdav/nzbdav/commit/7c7f05bc7c808b9f0d0a472908a884109ec73c22))
+* **ui:** keep top-nav version label on one line ([ca268e1](https://github.com/nzbdav/nzbdav/commit/ca268e175c529ed69d8cc6c95635b4acc893743d))
+* **ui:** match proxy allowlist on path segment boundaries ([35ea307](https://github.com/nzbdav/nzbdav/commit/35ea307177040632e3b6fa2372cb4d4309ad3859))
+* **ui:** match proxy allowlist on path segment boundaries ([026d018](https://github.com/nzbdav/nzbdav/commit/026d0184fbdc2119888794a52863146d9645b0c1))
+* **ui:** safe-decode credential rate-limiter path check ([ed0440b](https://github.com/nzbdav/nzbdav/commit/ed0440b99c22ad5ef3157424883ca8c8fefa72f2))
+* **ui:** safe-decode paths in proxy auth and compression ([7e1d588](https://github.com/nzbdav/nzbdav/commit/7e1d5886fb487a2a3bb1c5ba6c2e40a56b26272f))
+* **ui:** safe-decode paths in proxy auth and compression ([9e51abc](https://github.com/nzbdav/nzbdav/commit/9e51abc8d8bdbb50a11dbaa21e6ae53f9cca9191))
+* **ui:** stop counting provider misses as Overview errors ([c79010d](https://github.com/nzbdav/nzbdav/commit/c79010dda4310f7fe6cde60708f0b1eef62ab4b6))
+* **ui:** stop counting provider misses as Overview errors ([3484d21](https://github.com/nzbdav/nzbdav/commit/3484d210cd54b10ee19bf0bf8426911a72cea69c))
+* **ui:** stop idle providers overflowing the queue Provider column ([48359cd](https://github.com/nzbdav/nzbdav/commit/48359cd52aa542f94ca8405ff9f7a9af3ec76255))
+* **usenet:** coalesce connection-pool websocket updates ([4743ff0](https://github.com/nzbdav/nzbdav/commit/4743ff07785b6632aa9b1e55dff73cdb8e874ad1))
+* **webdav:** clear partial range outs on parse failure ([8967564](https://github.com/nzbdav/nzbdav/commit/8967564c21de9e55cc4d5214a91c95ab23356084))
+* **webdav:** handle malformed and unsatisfiable /view ranges ([ea83312](https://github.com/nzbdav/nzbdav/commit/ea83312722d6210666163f1abf445ff230297775))
+* **webdav:** handle malformed and unsatisfiable /view ranges ([0b4da71](https://github.com/nzbdav/nzbdav/commit/0b4da7188aeb81d3ecab0347c499b8b0ee3648a5))
+
 ## [0.7.15](https://github.com/nzbdav/nzbdav/compare/v0.7.14...v0.7.15) (2026-07-13)
 
 
