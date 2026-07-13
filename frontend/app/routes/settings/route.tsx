@@ -74,6 +74,8 @@ const defaultConfig = {
     "grab.stall-failover-window-seconds": "2",
     "grab.stall-failover-ceiling-seconds": "5",
     "search.exclude-patterns": "",
+    "search.exclude-sync-urls": "",
+    "search.exclude-sync-refresh-minutes": "720",
     "variants.mode": "off",
     "variants.tolerance-pct": "25",
     "variants.max-per-group": "3",
@@ -274,7 +276,7 @@ function Body(props: BodyProps) {
             <Tabs options={tabOptions} value={activeTab} onChange={setActiveTab} />
             <TabPanel>
                 {activeTab === "usenet" && <UsenetSettings config={newConfig} setNewConfig={setNewConfig} />}
-                {activeTab === "indexers" && <IndexersSettings config={newConfig} setNewConfig={setNewConfig} />}
+                {activeTab === "indexers" && <IndexersSettings config={newConfig} setNewConfig={setNewConfig} savedConfig={config} />}
                 {activeTab === "profiles" && <ProfilesSettings config={newConfig} setNewConfig={setNewConfig} />}
                 {activeTab === "watchdog" && <WatchdogSettings config={newConfig} setNewConfig={setNewConfig} />}
                 {activeTab === "preflight" && <PreflightSettings config={newConfig} setNewConfig={setNewConfig} />}
