@@ -86,14 +86,16 @@ public class GetWebdavItemRequest
         if (!long.TryParse(startPart, out var start) || start < 0)
             return false;
 
-        rangeStart = start;
+        long? parsedEnd = null;
         if (endPart.Length > 0)
         {
             if (!long.TryParse(endPart, out var end) || end < 0)
                 return false;
-            rangeEnd = end;
+            parsedEnd = end;
         }
 
+        rangeStart = start;
+        rangeEnd = parsedEnd;
         return true;
     }
 
