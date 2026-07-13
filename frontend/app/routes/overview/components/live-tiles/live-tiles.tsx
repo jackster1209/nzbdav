@@ -32,7 +32,7 @@ export function LiveTiles({ tiles }: LiveTilesProps) {
             <Tile
                 label="Fetch errors"
                 value={tiles.errorsPerMinute.toString()}
-                sub="last minute"
+                sub="hard failures / min"
                 accent={tiles.errorsPerMinute > 0 ? "danger" : undefined}
             />
         </div>

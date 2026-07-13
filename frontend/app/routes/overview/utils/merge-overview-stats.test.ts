@@ -22,12 +22,16 @@ describe("mergeOverviewStats", () => {
             partial({
                 includedSections: ["window"],
                 totalArticles: 99,
-                throughput: [{ bucket: 1, articles: 5, errors: 0, bytesServed: 10 }],
+                totalMisses: 40,
+                totalErrors: 2,
+                throughput: [{ bucket: 1, articles: 5, misses: 2, errors: 0, bytesServed: 10 }],
                 tiles: { activeReads: 2, articlesPerMinute: 10, errorsPerMinute: 0, bytesServedPerMinute: 1000 },
             }),
         );
 
         expect(withWindow.totalArticles).toBe(99);
+        expect(withWindow.totalMisses).toBe(40);
+        expect(withWindow.totalErrors).toBe(2);
         expect(withWindow.throughput).toHaveLength(1);
         expect(withWindow.catalogue.fileCount).toBe(42);
         expect(withWindow.indexers).toHaveLength(1);
@@ -39,7 +43,7 @@ describe("mergeOverviewStats", () => {
             EMPTY_OVERVIEW_STATS,
             partial({
                 includedSections: ["window"],
-                throughput: [{ bucket: 1, articles: 5, errors: 0, bytesServed: 10 }],
+                throughput: [{ bucket: 1, articles: 5, misses: 1, errors: 0, bytesServed: 10 }],
             }),
         );
 

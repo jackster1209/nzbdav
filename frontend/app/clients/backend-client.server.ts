@@ -547,6 +547,7 @@ export type OverviewStatsResponse = {
     },
     throughput: ThroughputPoint[],
     totalArticles: number,
+    totalMisses: number,
     totalErrors: number,
     totalBytesFetched: number,
     providers: ProviderRow[],
@@ -643,6 +644,7 @@ export type FailoverBucket = {
 export type ThroughputPoint = {
     bucket: number,
     articles: number,
+    misses: number,
     errors: number,
     bytesServed: number,
 }

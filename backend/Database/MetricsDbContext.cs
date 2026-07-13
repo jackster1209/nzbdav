@@ -100,6 +100,7 @@ public sealed class MetricsDbContext : DbContext
             e.Property(x => x.BytesServed).IsRequired();
             e.Property(x => x.BytesFetched).IsRequired();
             e.Property(x => x.Articles).IsRequired();
+            e.Property(x => x.Misses).IsRequired();
             e.Property(x => x.Errors).IsRequired();
             e.Property(x => x.ActiveReadsMax).IsRequired();
         });
@@ -112,6 +113,7 @@ public sealed class MetricsDbContext : DbContext
             e.Property(x => x.Provider).IsRequired().HasMaxLength(255);
             e.Property(x => x.Articles).IsRequired();
             e.Property(x => x.BytesFetched).IsRequired();
+            e.Property(x => x.Misses).IsRequired();
             e.Property(x => x.Errors).IsRequired();
             e.Property(x => x.Retries).IsRequired();
             e.Property(x => x.FailoverSaves).IsRequired();
@@ -126,6 +128,7 @@ public sealed class MetricsDbContext : DbContext
             e.Property(x => x.Provider).IsRequired().HasMaxLength(255);
             e.Property(x => x.Articles).IsRequired();
             e.Property(x => x.BytesFetched).IsRequired();
+            e.Property(x => x.Misses).IsRequired();
             e.Property(x => x.Errors).IsRequired();
             e.Property(x => x.Retries).IsRequired();
             e.Property(x => x.FailoverSaves).IsRequired();

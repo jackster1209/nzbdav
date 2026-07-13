@@ -17,6 +17,7 @@ export const EMPTY_OVERVIEW_STATS: OverviewStatsResponse = {
     },
     throughput: [],
     totalArticles: 0,
+    totalMisses: 0,
     totalErrors: 0,
     totalBytesFetched: 0,
     providers: [],
@@ -88,6 +89,7 @@ export function mergeOverviewStats(
         next.tiles = partial.tiles;
         next.throughput = partial.throughput;
         next.totalArticles = partial.totalArticles;
+        next.totalMisses = partial.totalMisses;
         next.totalErrors = partial.totalErrors;
         next.totalBytesFetched = partial.totalBytesFetched;
         next.providers = partial.providers;

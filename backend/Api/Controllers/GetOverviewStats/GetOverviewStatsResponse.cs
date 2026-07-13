@@ -10,6 +10,7 @@ public class GetOverviewStatsResponse
     public LiveTiles Tiles { get; init; } = new();
     public List<ThroughputPoint> Throughput { get; init; } = new();
     public long TotalArticles { get; init; }
+    public long TotalMisses { get; init; }
     public long TotalErrors { get; init; }
     public long TotalBytesFetched { get; init; }
     public List<ProviderRow> Providers { get; init; } = new();
@@ -47,6 +48,7 @@ public class GetOverviewStatsResponse
     {
         public long Bucket { get; init; }
         public long Articles { get; init; }
+        public long Misses { get; init; }
         public long Errors { get; init; }
         public long BytesServed { get; init; }
     }

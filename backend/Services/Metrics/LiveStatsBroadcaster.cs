@@ -64,8 +64,11 @@ public class LiveStatsBroadcaster(
         var articles = await db.SegmentFetches
             .Where(x => x.At >= sinceMs)
             .CountAsync().ConfigureAwait(false);
+        // Hard failures only — Missing (expected provider misses) is excluded.
         var errors = await db.SegmentFetches
-            .Where(x => x.At >= sinceMs && x.Status != SegmentFetch.FetchStatus.Ok)
+            .Where(x => x.At >= sinceMs
+                        && x.Status != SegmentFetch.FetchStatus.Ok
+                        && x.Status != SegmentFetch.FetchStatus.Missing)
             .CountAsync().ConfigureAwait(false);
 
         // Roll the bytes-served window forward. First sample after startup

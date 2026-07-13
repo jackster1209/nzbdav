@@ -216,6 +216,7 @@ export default function Overview(_props: Route.ComponentProps) {
                 <ThroughputChart
                     points={stats.throughput}
                     totalArticles={stats.totalArticles}
+                    totalMisses={stats.totalMisses}
                     totalErrors={stats.totalErrors}
                     totalBytesServed={stats.sessions.totalBytesServed}
                     window={window}

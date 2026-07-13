@@ -73,7 +73,7 @@ public class GetOverviewStatsController(
         var indexerApiUsage = new List<GetOverviewStatsResponse.IndexerApiUsageRow>();
         var lifetime = new GetOverviewStatsResponse.LifetimeBlock();
         var records = new GetOverviewStatsResponse.RecordsBlock();
-        long totalArticles = 0, totalErrors = 0, totalBytesFetched = 0;
+        long totalArticles = 0, totalMisses = 0, totalErrors = 0, totalBytesFetched = 0;
 
         Task<WindowSectionResult>? windowTask = null;
         Task<DetailSectionResult>? detailTask = null;
@@ -104,6 +104,7 @@ public class GetOverviewStatsController(
             heatmap = w.Heatmap;
             failover = w.Failover;
             totalArticles = w.TotalArticles;
+            totalMisses = w.TotalMisses;
             totalErrors = w.TotalErrors;
             totalBytesFetched = w.TotalBytesFetched;
         }
@@ -139,6 +140,7 @@ public class GetOverviewStatsController(
             Tiles = tiles,
             Throughput = throughput,
             TotalArticles = totalArticles,
+            TotalMisses = totalMisses,
             TotalErrors = totalErrors,
             TotalBytesFetched = totalBytesFetched,
             Providers = providers,
@@ -164,6 +166,7 @@ public class GetOverviewStatsController(
         GetOverviewStatsResponse.HeatmapBlock Heatmap,
         GetOverviewStatsResponse.FailoverBlock Failover,
         long TotalArticles,
+        long TotalMisses,
         long TotalErrors,
         long TotalBytesFetched);
 
@@ -207,7 +210,10 @@ public class GetOverviewStatsController(
             .Select(g => new
             {
                 Articles = g.Count(),
-                Errors = g.Count(x => x.Status != SegmentFetch.FetchStatus.Ok),
+                // Hard failures only — Missing (expected provider misses) is excluded.
+                Errors = g.Count(x =>
+                    x.Status != SegmentFetch.FetchStatus.Ok
+                    && x.Status != SegmentFetch.FetchStatus.Missing),
             })
             .FirstOrDefaultAsync();
 
@@ -215,13 +221,13 @@ public class GetOverviewStatsController(
         List<(string From, SegmentFetch.FetchStatus Reason, long Count)> misses;
         List<GetOverviewStatsResponse.ThroughputPoint> throughput;
         List<GetOverviewStatsResponse.ProviderRow> providers;
-        long totalArticles, totalErrors, totalBytesFetched;
+        long totalArticles, totalMisses, totalErrors, totalBytesFetched;
 
         if (useRollups)
         {
             var hoursTask = metricsA.ProviderHourly
                 .Where(h => h.Hour >= windowStart)
-                .Select(h => new { h.Hour, h.Provider, h.Articles, h.BytesFetched, h.Errors, h.Retries, h.FailoverSaves, h.SumDurationMs })
+                .Select(h => new { h.Hour, h.Provider, h.Articles, h.BytesFetched, h.Misses, h.Errors, h.Retries, h.FailoverSaves, h.SumDurationMs })
                 .ToListAsync();
             var failoverEdgesTask = metricsB.FailoverHourly
                 .Where(f => f.Hour >= windowStart)
@@ -236,11 +242,12 @@ public class GetOverviewStatsController(
             var failoverEdges = await failoverEdgesTask.ConfigureAwait(false);
 
             throughput = BuildThroughputFromHourly(
-                hours.Select(h => (h.Hour, h.Articles, h.Errors, h.BytesFetched)),
+                hours.Select(h => (h.Hour, h.Articles, h.Misses, h.Errors, h.BytesFetched)),
                 sessions.Select(s => (s.EndedAt, s.BytesServed)),
                 bucketSize);
             providers = BuildProvidersFromHourly(hours, windowStart, bucketSize, nowMs, nicknamesByHost);
             totalArticles = hours.Sum(h => h.Articles);
+            totalMisses = hours.Sum(h => h.Misses);
             totalErrors = hours.Sum(h => h.Errors);
             totalBytesFetched = hours.Sum(h => h.BytesFetched);
             rescues = hours.Where(h => h.FailoverSaves > 0)
@@ -260,6 +267,7 @@ public class GetOverviewStatsController(
                     p.Provider,
                     p.Articles,
                     p.BytesFetched,
+                    p.Misses,
                     p.Errors,
                     p.Retries,
                     p.FailoverSaves,
@@ -268,7 +276,7 @@ public class GetOverviewStatsController(
                 .ToListAsync();
             var throughputMinutesTask = metricsB.ThroughputMinutes
                 .Where(t => t.Minute >= windowStart)
-                .Select(t => new { t.Minute, t.Articles, t.Errors, t.BytesServed })
+                .Select(t => new { t.Minute, t.Articles, t.Misses, t.Errors, t.BytesServed })
                 .ToListAsync();
             var failoverMissesTask = metricsC.FailoverMisses
                 .Where(f => f.At >= windowStart)
@@ -285,12 +293,13 @@ public class GetOverviewStatsController(
             var failoverMisses = await failoverMissesTask.ConfigureAwait(false);
 
             throughput = BuildThroughputFromMinutes(
-                throughputMinutes.Select(t => (t.Minute, t.Articles, t.Errors, t.BytesServed)),
+                throughputMinutes.Select(t => (t.Minute, t.Articles, t.Misses, t.Errors, t.BytesServed)),
                 bucketSize);
             providers = BuildProvidersFromMinutes(
                 minutes.Select(m => (m.Minute, m.Provider, m.Articles, m.BytesFetched, m.Errors, m.Retries, m.SumDurationMs)),
                 windowStart, window, nicknamesByHost);
             totalArticles = minutes.Sum(m => m.Articles);
+            totalMisses = minutes.Sum(m => m.Misses);
             totalErrors = minutes.Sum(m => m.Errors);
             totalBytesFetched = minutes.Sum(m => m.BytesFetched);
             rescues = minutes.Where(m => m.FailoverSaves > 0)
@@ -320,7 +329,7 @@ public class GetOverviewStatsController(
 
         return new WindowSectionResult(
             tiles, throughput, providers, sessionsBlock, heatmap, failover,
-            totalArticles, totalErrors, totalBytesFetched);
+            totalArticles, totalMisses, totalErrors, totalBytesFetched);
     }
 
     private static async Task<long?> LoadPreviousFailoverSavesAsync(
@@ -562,15 +571,19 @@ public class GetOverviewStatsController(
     }
 
     private static List<GetOverviewStatsResponse.ThroughputPoint> BuildThroughputFromMinutes(
-        IEnumerable<(long Minute, long Articles, long Errors, long BytesServed)> minutes,
+        IEnumerable<(long Minute, long Articles, long Misses, long Errors, long BytesServed)> minutes,
         long bucketSize)
     {
-        var byBucket = new Dictionary<long, (long Articles, long Errors, long BytesServed)>();
+        var byBucket = new Dictionary<long, (long Articles, long Misses, long Errors, long BytesServed)>();
         foreach (var m in minutes)
         {
             var b = m.Minute - (m.Minute % bucketSize);
             byBucket.TryGetValue(b, out var cur);
-            byBucket[b] = (cur.Articles + m.Articles, cur.Errors + m.Errors, cur.BytesServed + m.BytesServed);
+            byBucket[b] = (
+                cur.Articles + m.Articles,
+                cur.Misses + m.Misses,
+                cur.Errors + m.Errors,
+                cur.BytesServed + m.BytesServed);
         }
 
         return byBucket
@@ -579,6 +592,7 @@ public class GetOverviewStatsController(
             {
                 Bucket = kv.Key,
                 Articles = kv.Value.Articles,
+                Misses = kv.Value.Misses,
                 Errors = kv.Value.Errors,
                 BytesServed = kv.Value.BytesServed,
             })
@@ -586,22 +600,27 @@ public class GetOverviewStatsController(
     }
 
     private static List<GetOverviewStatsResponse.ThroughputPoint> BuildThroughputFromHourly(
-        IEnumerable<(long Hour, long Articles, long Errors, long BytesFetched)> hours,
+        IEnumerable<(long Hour, long Articles, long Misses, long Errors, long BytesFetched)> hours,
         IEnumerable<(long EndedAt, long BytesServed)> sessions,
         long bucketSize)
     {
-        var byBucket = new Dictionary<long, (long Articles, long Errors, long BytesServed, long BytesFetched)>();
+        var byBucket = new Dictionary<long, (long Articles, long Misses, long Errors, long BytesServed, long BytesFetched)>();
         foreach (var h in hours)
         {
             var b = h.Hour - (h.Hour % bucketSize);
             byBucket.TryGetValue(b, out var cur);
-            byBucket[b] = (cur.Articles + h.Articles, cur.Errors + h.Errors, cur.BytesServed, cur.BytesFetched + h.BytesFetched);
+            byBucket[b] = (
+                cur.Articles + h.Articles,
+                cur.Misses + h.Misses,
+                cur.Errors + h.Errors,
+                cur.BytesServed,
+                cur.BytesFetched + h.BytesFetched);
         }
         foreach (var (endedAt, bytes) in sessions)
         {
             var b = endedAt - (endedAt % bucketSize);
             byBucket.TryGetValue(b, out var cur);
-            byBucket[b] = (cur.Articles, cur.Errors, cur.BytesServed + bytes, cur.BytesFetched);
+            byBucket[b] = (cur.Articles, cur.Misses, cur.Errors, cur.BytesServed + bytes, cur.BytesFetched);
         }
 
         return byBucket
@@ -610,6 +629,7 @@ public class GetOverviewStatsController(
             {
                 Bucket = kv.Key,
                 Articles = kv.Value.Articles,
+                Misses = kv.Value.Misses,
                 Errors = kv.Value.Errors,
                 BytesServed = kv.Value.BytesServed,
             })

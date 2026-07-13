@@ -6,6 +6,7 @@ import { formatBytes, formatNumber } from "../../utils/format";
 export type ThroughputChartProps = {
     points: ThroughputPoint[],
     totalArticles: number,
+    totalMisses: number,
     totalErrors: number,
     totalBytesServed: number,
     window: OverviewWindow,
@@ -16,7 +17,7 @@ const VB_H = 160;
 const TOP_PAD = 6;
 const BOT_PAD = 4;
 
-export function ThroughputChart({ points, totalArticles, totalErrors, totalBytesServed, window }: ThroughputChartProps) {
+export function ThroughputChart({ points, totalArticles, totalMisses, totalErrors, totalBytesServed, window }: ThroughputChartProps) {
     const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
     const { articlesPath, errorsPath, maxArticles, xPercent, yPercent } = useMemo(() => {
@@ -90,6 +91,7 @@ export function ThroughputChart({ points, totalArticles, totalErrors, totalBytes
                 </div>
                 <div className={styles.totals}>
                     <Total label="Articles" value={formatNumber(totalArticles)} />
+                    <Total label="Misses" value={formatNumber(totalMisses)} />
                     <Total label="Errors" value={formatNumber(totalErrors)} accent={totalErrors > 0 ? "danger" : undefined} />
                     <Total label="Served" value={formatBytes(totalBytesServed)} />
                 </div>
@@ -163,6 +165,7 @@ export function ThroughputChart({ points, totalArticles, totalErrors, totalBytes
                                 <>
                                     <strong>{formatBucketTime(hover.bucket, window)}</strong>
                                     &nbsp;·&nbsp;{formatNumber(hover.articles)} articles
+                                    {(hover.misses ?? 0) > 0 && <> · {formatNumber(hover.misses)} misses</>}
                                     {hover.errors > 0 && <> · {formatNumber(hover.errors)} errors</>}
                                     {hover.bytesServed > 0 && <> · {formatBytes(hover.bytesServed)} served</>}
                                 </>

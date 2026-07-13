@@ -11,6 +11,9 @@ namespace NzbWebDAV.Services.Metrics;
 /// ReadSession event tables. Runs once a minute, idempotently upserting the
 /// last fully-elapsed minute. On the hour boundary it folds the 60 finished
 /// minutes into ProviderHourly. Re-running any window is safe.
+///
+/// Errors are hard fetch failures only (Status NOT IN Ok/Missing). Expected
+/// provider misses (Status = Missing) are counted separately as Misses.
 /// </summary>
 public class MetricsRollupService(ProviderBytesTracker bytesTracker) : BackgroundService
 {
@@ -80,8 +83,8 @@ public class MetricsRollupService(ProviderBytesTracker bytesTracker) : Backgroun
             await db.Database.ExecuteSqlRawAsync(
                 """
                 INSERT INTO ProviderMinutes
-                    (Minute, Provider, Articles, BytesFetched, Errors, Retries, SumDurationMs, Hist)
-                VALUES ({0}, {1}, 0, {2}, 0, 0, 0, NULL)
+                    (Minute, Provider, Articles, BytesFetched, Misses, Errors, Retries, SumDurationMs, Hist)
+                VALUES ({0}, {1}, 0, {2}, 0, 0, 0, 0, NULL)
                 ON CONFLICT(Minute, Provider) DO UPDATE SET
                     BytesFetched = ProviderMinutes.BytesFetched + excluded.BytesFetched;
                 """,
@@ -91,8 +94,8 @@ public class MetricsRollupService(ProviderBytesTracker bytesTracker) : Backgroun
             await db.Database.ExecuteSqlRawAsync(
                 """
                 INSERT INTO ProviderHourly
-                    (Hour, Provider, Articles, BytesFetched, Errors, Retries, SumDurationMs, P95DurationMs)
-                VALUES ({0}, {1}, 0, {2}, 0, 0, 0, NULL)
+                    (Hour, Provider, Articles, BytesFetched, Misses, Errors, Retries, SumDurationMs, P95DurationMs)
+                VALUES ({0}, {1}, 0, {2}, 0, 0, 0, 0, NULL)
                 ON CONFLICT(Hour, Provider) DO UPDATE SET
                     BytesFetched = ProviderHourly.BytesFetched + excluded.BytesFetched;
                 """,
@@ -101,8 +104,8 @@ public class MetricsRollupService(ProviderBytesTracker bytesTracker) : Backgroun
             await db.Database.ExecuteSqlRawAsync(
                 """
                 INSERT INTO ThroughputMinutes
-                    (Minute, BytesServed, BytesFetched, Articles, Errors, ActiveReadsMax)
-                VALUES ({0}, 0, {1}, 0, 0, 0)
+                    (Minute, BytesServed, BytesFetched, Articles, Misses, Errors, ActiveReadsMax)
+                VALUES ({0}, 0, {1}, 0, 0, 0, 0)
                 ON CONFLICT(Minute) DO UPDATE SET
                     BytesFetched = ThroughputMinutes.BytesFetched + excluded.BytesFetched;
                 """,
@@ -120,17 +123,19 @@ public class MetricsRollupService(ProviderBytesTracker bytesTracker) : Backgroun
         // tracker already deposited via ApplyByteCountersAsync.
         await db.Database.ExecuteSqlRawAsync(
             """
-            INSERT INTO ThroughputMinutes (Minute, BytesServed, BytesFetched, Articles, Errors, ActiveReadsMax)
+            INSERT INTO ThroughputMinutes (Minute, BytesServed, BytesFetched, Articles, Misses, Errors, ActiveReadsMax)
             SELECT
                 {0} AS Minute,
                 COALESCE((SELECT SUM(BytesServed) FROM ReadSessions WHERE EndedAt >= {0} AND EndedAt < {1}), 0) AS BytesServed,
                 0 AS BytesFetched,
-                COALESCE((SELECT COUNT(*)         FROM SegmentFetches WHERE At >= {0} AND At < {1}), 0)        AS Articles,
-                COALESCE((SELECT COUNT(*)         FROM SegmentFetches WHERE At >= {0} AND At < {1} AND Status <> 0), 0) AS Errors,
+                COALESCE((SELECT COUNT(*) FROM SegmentFetches WHERE At >= {0} AND At < {1}), 0) AS Articles,
+                COALESCE((SELECT COUNT(*) FROM SegmentFetches WHERE At >= {0} AND At < {1} AND Status = 1), 0) AS Misses,
+                COALESCE((SELECT COUNT(*) FROM SegmentFetches WHERE At >= {0} AND At < {1} AND Status NOT IN (0, 1)), 0) AS Errors,
                 0 AS ActiveReadsMax
             ON CONFLICT(Minute) DO UPDATE SET
                 BytesServed  = excluded.BytesServed,
                 Articles     = excluded.Articles,
+                Misses       = excluded.Misses,
                 Errors       = excluded.Errors;
             """,
             minute, next).ConfigureAwait(false);
@@ -139,11 +144,12 @@ public class MetricsRollupService(ProviderBytesTracker bytesTracker) : Backgroun
         // ON CONFLICT — the tracker is the sole writer of that column.
         await db.Database.ExecuteSqlRawAsync(
             """
-            INSERT INTO ProviderMinutes (Minute, Provider, Articles, BytesFetched, Errors, Retries, FailoverSaves, SumDurationMs, Hist)
+            INSERT INTO ProviderMinutes (Minute, Provider, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, Hist)
             SELECT {0}, Provider,
                 COUNT(*),
                 0,
-                SUM(CASE WHEN Status <> 0 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN Status NOT IN (0, 1) THEN 1 ELSE 0 END),
                 SUM(Retries),
                 SUM(CASE WHEN Status = 0 AND Retries > 0 THEN 1 ELSE 0 END),
                 SUM(DurationMs),
@@ -153,6 +159,7 @@ public class MetricsRollupService(ProviderBytesTracker bytesTracker) : Backgroun
             GROUP BY Provider
             ON CONFLICT(Minute, Provider) DO UPDATE SET
                 Articles      = excluded.Articles,
+                Misses        = excluded.Misses,
                 Errors        = excluded.Errors,
                 Retries       = excluded.Retries,
                 FailoverSaves = excluded.FailoverSaves,
@@ -166,10 +173,11 @@ public class MetricsRollupService(ProviderBytesTracker bytesTracker) : Backgroun
         var next = hour + OneHour;
         await db.Database.ExecuteSqlRawAsync(
             """
-            INSERT INTO ProviderHourly (Hour, Provider, Articles, BytesFetched, Errors, Retries, FailoverSaves, SumDurationMs, P95DurationMs)
+            INSERT INTO ProviderHourly (Hour, Provider, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, P95DurationMs)
             SELECT {0}, Provider,
                 SUM(Articles),
                 SUM(BytesFetched),
+                SUM(Misses),
                 SUM(Errors),
                 SUM(Retries),
                 SUM(FailoverSaves),
@@ -181,6 +189,7 @@ public class MetricsRollupService(ProviderBytesTracker bytesTracker) : Backgroun
             ON CONFLICT(Hour, Provider) DO UPDATE SET
                 Articles      = excluded.Articles,
                 BytesFetched  = excluded.BytesFetched,
+                Misses        = excluded.Misses,
                 Errors        = excluded.Errors,
                 Retries       = excluded.Retries,
                 FailoverSaves = excluded.FailoverSaves,

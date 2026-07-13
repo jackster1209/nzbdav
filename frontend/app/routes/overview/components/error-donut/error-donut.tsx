@@ -20,27 +20,42 @@ const COLORS: Record<string, string> = {
 };
 const DEFAULT_COLOR = "#525252";
 
+const HARD_FAILURE_STATUSES = new Set(["Timeout", "Corrupt", "Auth", "Network", "Other"]);
+
 export function ErrorBreakdown({ errors }: ErrorDonutProps) {
     const [hover, setHover] = useState<string | null>(null);
 
-    const { total, segments } = useMemo(() => {
-        const total = errors.reduce((s, e) => s + e.count, 0);
-        const segments = errors.map(e => ({
-            ...e,
-            fraction: total > 0 ? e.count / total : 0,
-            color: COLORS[e.status] ?? DEFAULT_COLOR,
-        }));
-        return { total, segments };
+    const { hardFailures, missTotal, hardTotal } = useMemo(() => {
+        const hardFailures = errors
+            .filter(e => e.status !== "Missing")
+            .map(e => ({
+                ...e,
+                color: COLORS[e.status] ?? DEFAULT_COLOR,
+            }));
+        const missTotal = errors
+            .filter(e => e.status === "Missing")
+            .reduce((s, e) => s + e.count, 0);
+        const hardTotal = hardFailures.reduce((s, e) => s + e.count, 0);
+        return { hardFailures, missTotal, hardTotal };
     }, [errors]);
+
+    const hardSegments = useMemo(() => {
+        return hardFailures.map(e => ({
+            ...e,
+            fraction: hardTotal > 0 ? e.count / hardTotal : 0,
+        }));
+    }, [hardFailures, hardTotal]);
+
+    const allClear = missTotal === 0 && hardTotal === 0;
 
     return (
         <div className={styles.container}>
             <div className={styles.header}>
                 <h3 className={styles.title}>Error breakdown</h3>
-                <div className={styles.sub}>Fetch failures, by type</div>
+                <div className={styles.sub}>Hard failures vs expected provider misses</div>
             </div>
 
-            {total === 0 ? (
+            {allClear ? (
                 <div className={styles.allClear}>
                     <div className={styles.allClearDot} />
                     <div>
@@ -50,46 +65,72 @@ export function ErrorBreakdown({ errors }: ErrorDonutProps) {
                 </div>
             ) : (
                 <>
-                    <div className={styles.headline}>
-                        <span className={styles.headlineCount}>{formatNumber(total)}</span>
-                        <span className={styles.headlineLabel}>{total === 1 ? "error" : "errors"}</span>
+                    <div className={styles.headlineRow}>
+                        <div className={styles.headline}>
+                            <span className={styles.headlineCount}>{formatNumber(hardTotal)}</span>
+                            <span className={styles.headlineLabel}>{hardTotal === 1 ? "error" : "errors"}</span>
+                        </div>
+                        {missTotal > 0 && (
+                            <div className={styles.headlineMuted}>
+                                <span className={styles.headlineCountMuted}>{formatNumber(missTotal)}</span>
+                                <span className={styles.headlineLabel}>provider misses</span>
+                            </div>
+                        )}
                     </div>
 
-                    <div
-                        className={styles.stack}
-                        onMouseLeave={() => setHover(null)}
-                        role="img"
-                        aria-label={`${total} fetch errors broken down by type`}
-                    >
-                        {segments.map(s => (
+                    {hardTotal > 0 ? (
+                        <>
                             <div
-                                key={s.status}
-                                className={`${styles.stackSeg} ${hover && hover !== s.status ? styles.stackSegDim : ""}`}
-                                style={{
-                                    flex: s.count,
-                                    background: s.color,
-                                }}
-                                onMouseEnter={() => setHover(s.status)}
-                                title={`${s.status}: ${formatNumber(s.count)} (${formatPercent(s.fraction * 100, 1)})`}
-                            />
-                        ))}
-                    </div>
-
-                    <ul className={styles.legend}>
-                        {segments.map(s => (
-                            <li
-                                key={s.status}
-                                className={`${styles.legendItem} ${hover === s.status ? styles.legendActive : ""}`}
-                                onMouseEnter={() => setHover(s.status)}
+                                className={styles.stack}
                                 onMouseLeave={() => setHover(null)}
+                                role="img"
+                                aria-label={`${hardTotal} hard fetch errors broken down by type`}
                             >
-                                <span className={styles.swatch} style={{ background: s.color }} />
-                                <span className={styles.legendLabel}>{s.status}</span>
-                                <span className={styles.legendCount}>{formatNumber(s.count)}</span>
-                                <span className={styles.legendPct}>{formatPercent(s.fraction * 100, 0)}</span>
-                            </li>
-                        ))}
-                    </ul>
+                                {hardSegments.map(s => (
+                                    <div
+                                        key={s.status}
+                                        className={`${styles.stackSeg} ${hover && hover !== s.status ? styles.stackSegDim : ""}`}
+                                        style={{
+                                            flex: s.count,
+                                            background: s.color,
+                                        }}
+                                        onMouseEnter={() => setHover(s.status)}
+                                        title={`${s.status}: ${formatNumber(s.count)} (${formatPercent(s.fraction * 100, 1)})`}
+                                    />
+                                ))}
+                            </div>
+
+                            <ul className={styles.legend}>
+                                {hardSegments.map(s => (
+                                    <li
+                                        key={s.status}
+                                        className={`${styles.legendItem} ${hover === s.status ? styles.legendActive : ""}`}
+                                        onMouseEnter={() => setHover(s.status)}
+                                        onMouseLeave={() => setHover(null)}
+                                    >
+                                        <span className={styles.swatch} style={{ background: s.color }} />
+                                        <span className={styles.legendLabel}>{s.status}</span>
+                                        <span className={styles.legendCount}>{formatNumber(s.count)}</span>
+                                        <span className={styles.legendPct}>{formatPercent(s.fraction * 100, 0)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    ) : (
+                        <div className={styles.noHardErrors}>
+                            No hard fetch failures — misses above are expected failover.
+                        </div>
+                    )}
+
+                    {missTotal > 0 && (
+                        <div className={styles.missNote}>
+                            <span className={styles.swatch} style={{ background: COLORS.Missing }} />
+                            <span>
+                                Provider misses are articles not found on the first provider tried;
+                                failover usually recovers them.
+                            </span>
+                        </div>
+                    )}
                 </>
             )}
         </div>
@@ -98,3 +139,8 @@ export function ErrorBreakdown({ errors }: ErrorDonutProps) {
 
 // Backwards-compatible export so the existing import name keeps working.
 export { ErrorBreakdown as ErrorDonut };
+
+// Exported for tests — hard failures exclude Missing.
+export function isHardFailureStatus(status: string): boolean {
+    return HARD_FAILURE_STATUSES.has(status);
+}
