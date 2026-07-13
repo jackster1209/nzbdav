@@ -10,6 +10,8 @@ namespace NzbWebDAV.Clients.Usenet.Connections;
 /// <para>
 /// *  Connections are created through a user-supplied factory (sync or async).<br/>
 /// *  At most <c>maxConnections</c> live instances exist at any time.<br/>
+/// *  Concurrent factory invocations (connect+auth) are capped so a cold burst
+///    ramps the pool instead of opening dozens of TLS handshakes at once.<br/>
 /// *  Idle connections older than <see cref="IdleTimeout"/> are disposed
 ///    automatically by a background sweeper.<br/>
 /// *  <see cref="Dispose"/> / <see cref="DisposeAsync"/> stop the sweeper and
@@ -21,6 +23,12 @@ namespace NzbWebDAV.Clients.Usenet.Connections;
 public sealed class ConnectionPool<T> : IDisposable, IAsyncDisposable
 {
     /* -------------------------------- configuration -------------------------------- */
+
+    /// <summary>
+    /// Caps simultaneous connect+auth factory calls so a cold burst of borrowers
+    /// ramps the pool instead of slamming dozens of TLS handshakes at once.
+    /// </summary>
+    private const int MaxConcurrentHandshakes = 3;
 
     public TimeSpan IdleTimeout { get; }
     public int LiveConnections => _live;
@@ -37,6 +45,7 @@ public sealed class ConnectionPool<T> : IDisposable, IAsyncDisposable
 
     private readonly ConcurrentStack<Pooled> _idleConnections = new();
     private readonly PrioritizedSemaphore _gate;
+    private readonly SemaphoreSlim _handshakeGate = new(MaxConcurrentHandshakes, MaxConcurrentHandshakes);
     private readonly CancellationTokenSource _sweepCts = new();
     private readonly Task _sweeperTask; // keeps timer alive
 
@@ -93,12 +102,74 @@ public sealed class ConnectionPool<T> : IDisposable, IAsyncDisposable
         }
 
         // Try to reuse an existing idle connection.
+        if (TryTakeIdleConnection(out var reused))
+        {
+            TriggerConnectionPoolChangedEvent();
+            return BuildLock(reused, wasReused: true);
+        }
+
+        // Need a fresh connection. Pace handshakes so a cold burst of borrowers
+        // does not open dozens of TLS sessions in parallel. While waiting, other
+        // connections may return to the idle stack — prefer those over a new handshake.
+        try
+        {
+            await _handshakeGate.WaitAsync(linked.Token).ConfigureAwait(false);
+        }
+        catch
+        {
+            _gate.Release();
+            throw;
+        }
+
+        try
+        {
+            if (Volatile.Read(ref _disposed) == 1)
+            {
+                _gate.Release();
+                ThrowDisposed();
+            }
+
+            if (TryTakeIdleConnection(out reused))
+            {
+                TriggerConnectionPoolChangedEvent();
+                return BuildLock(reused, wasReused: true);
+            }
+
+            T conn;
+            try
+            {
+                conn = await _factory(linked.Token).ConfigureAwait(false);
+            }
+            catch
+            {
+                _gate.Release(); // free the permit on failure
+                throw;
+            }
+
+            Interlocked.Increment(ref _live);
+            TriggerConnectionPoolChangedEvent();
+            return BuildLock(conn, wasReused: false);
+        }
+        finally
+        {
+            _handshakeGate.Release();
+        }
+
+        ConnectionLock<T> BuildLock(T c, bool wasReused)
+            => new(c, Return, Destroy, wasReused);
+
+        static void ThrowDisposed()
+            => throw new ObjectDisposedException(nameof(ConnectionPool<T>));
+    }
+
+    private bool TryTakeIdleConnection(out T connection)
+    {
         while (_idleConnections.TryPop(out var item))
         {
             if (!item.IsExpired(IdleTimeout))
             {
-                TriggerConnectionPoolChangedEvent();
-                return BuildLock(item.Connection, wasReused: true);
+                connection = item.Connection;
+                return true;
             }
 
             // Stale – destroy and continue looking.
@@ -107,27 +178,8 @@ public sealed class ConnectionPool<T> : IDisposable, IAsyncDisposable
             TriggerConnectionPoolChangedEvent();
         }
 
-        // Need a fresh connection.
-        T conn;
-        try
-        {
-            conn = await _factory(linked.Token).ConfigureAwait(false);
-        }
-        catch
-        {
-            _gate.Release(); // free the permit on failure
-            throw;
-        }
-
-        Interlocked.Increment(ref _live);
-        TriggerConnectionPoolChangedEvent();
-        return BuildLock(conn, wasReused: false);
-
-        ConnectionLock<T> BuildLock(T c, bool wasReused)
-            => new(c, Return, Destroy, wasReused);
-
-        static void ThrowDisposed()
-            => throw new ObjectDisposedException(nameof(ConnectionPool<T>));
+        connection = default!;
+        return false;
     }
 
     /* ========================== core helpers ====================================== */
@@ -254,6 +306,7 @@ public sealed class ConnectionPool<T> : IDisposable, IAsyncDisposable
 
         _sweepCts.Dispose();
         _gate.Dispose();
+        _handshakeGate.Dispose();
         GC.SuppressFinalize(this);
     }
 
