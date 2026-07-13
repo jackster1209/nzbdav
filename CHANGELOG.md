@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.12](https://github.com/nzbdav/nzbdav/compare/v0.7.11...v0.7.12) (2026-07-13)
+
+
+### Bug Fixes
+
+* **db:** tolerate pre-existing IX_DavItems_Path index during migration ([2d3cdbe](https://github.com/nzbdav/nzbdav/commit/2d3cdbe0001c4dd9d203c581b2eefaa5518435ff))
+* **db:** tolerate pre-existing IX_DavItems_Path index during migration ([9536f27](https://github.com/nzbdav/nzbdav/commit/9536f273255639f7ed490d6fbe31be75c8216eae))
+
 ## [0.7.11](https://github.com/nzbdav/nzbdav/compare/v0.7.10...v0.7.11) (2026-07-13)
 
 
