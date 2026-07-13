@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.15](https://github.com/nzbdav/nzbdav/compare/v0.7.14...v0.7.15) (2026-07-13)
+
+
+### Bug Fixes
+
+* **ui:** add .js extension to startup-grace import for node esm ([e60eb6f](https://github.com/nzbdav/nzbdav/commit/e60eb6f62947ec6a2d1b7048133ae2b5167bcd36))
+
 ## [0.7.14](https://github.com/nzbdav/nzbdav/compare/v0.7.13...v0.7.14) (2026-07-13)
 
 
