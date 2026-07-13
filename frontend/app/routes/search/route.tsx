@@ -1,9 +1,8 @@
 import type { Route } from "./+types/route";
 import { Form, useFetcher, useNavigation } from "react-router";
 import { backendClient, type SearchIndexersResponse } from "~/clients/backend-client.server";
-import { Button, Input, Spinner } from "~/components/ui";
+import { Badge, Button, Input, Spinner } from "~/components/ui";
 import { formatFileSize } from "~/utils/file-size";
-import styles from "./route.module.css";
 
 export async function loader({ request }: Route.LoaderArgs) {
     const url = new URL(request.url);
@@ -32,45 +31,57 @@ export default function Search({ loaderData }: Route.ComponentProps) {
     const { q, data } = loaderData;
 
     return (
-        <div className={styles.container}>
-            <Form method="get" className={styles.searchBar}>
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 md:px-6">
+            <h1 className="sr-only">Search</h1>
+            <Form method="get" className="join w-full">
                 <Input
                     name="q"
                     defaultValue={q}
                     placeholder="Search your indexers..."
                     aria-label="Search your indexers"
-                    className="min-w-0 flex-1"
+                    className="join-item min-w-0 flex-1"
                     autoFocus
                 />
-                <Button type="submit" disabled={isSearching}>
+                <Button type="submit" disabled={isSearching} className="join-item">
                     {isSearching ? <Spinner size="sm" /> : "Search"}
                 </Button>
             </Form>
 
             {data && (
-                <div className={styles.statusRow}>
+                <div className="flex flex-wrap gap-2">
                     {data.indexers.map(i => (
-                        <span key={i.name} className={i.ok ? styles.statusOk : styles.statusFail}>
+                        <Badge
+                            key={i.name}
+                            className={`badge-sm ${i.ok ? "badge-success" : "badge-error"}`}
+                        >
                             {i.name}: {i.ok ? `${i.resultCount} results` : "failed"} ({i.elapsedMs}ms)
-                            {i.error && <span className={styles.statusError}> — {i.error}</span>}
-                        </span>
+                            {i.error ? ` — ${i.error}` : ""}
+                        </Badge>
                     ))}
                 </div>
             )}
 
             {data === null && (
-                <p className={styles.empty}>
-                    Type a query above to search your configured Newznab indexers.
-                    Configure indexers under Settings → Indexers.
-                </p>
+                <div className="card border border-base-content/10 bg-base-200">
+                    <div className="card-body items-center text-center text-base-content/60">
+                        <p>
+                            Type a query above to search your configured Newznab indexers.
+                            Configure indexers under Settings → Indexers.
+                        </p>
+                    </div>
+                </div>
             )}
 
             {data && data.results.length === 0 && (
-                <p className={styles.empty}>No results for "{q}".</p>
+                <div className="card border border-base-content/10 bg-base-200">
+                    <div className="card-body items-center text-center text-base-content/60">
+                        <p>No results for &quot;{q}&quot;.</p>
+                    </div>
+                </div>
             )}
 
             {data && data.results.length > 0 && (
-                <ul className={styles.results}>
+                <ul className="list rounded-box border border-base-content/10 bg-base-200">
                     {data.results.map((r, idx) => (
                         <ResultRow key={`${r.nzbUrl}-${idx}`} result={r} />
                     ))}
@@ -87,10 +98,10 @@ function ResultRow({ result }: { result: { indexer: string; title: string; nzbUr
     const failed = fetcher.data && fetcher.data.ok === false;
 
     return (
-        <li className={styles.result}>
-            <div className={styles.title}>
-                <div>{result.title}</div>
-                <div className={styles.meta}>
+        <li className="list-row items-center">
+            <div className="list-col-grow min-w-0">
+                <div className="font-medium">{result.title}</div>
+                <div className="text-xs text-base-content/60">
                     {result.indexer} · {formatFileSize(result.size)}
                     {result.posted && ` · ${new Date(result.posted).toLocaleDateString()}`}
                 </div>
@@ -103,7 +114,7 @@ function ResultRow({ result }: { result: { indexer: string; title: string; nzbUr
                     size="xsmall"
                     variant={done ? "success" : failed ? "danger" : "primary"}
                     disabled={submitting || done}
-                    className={styles.mountBtn}
+                    className="whitespace-nowrap"
                     title={failed ? fetcher.data?.error : undefined}
                 >
                     {submitting ? <Spinner size="sm" />

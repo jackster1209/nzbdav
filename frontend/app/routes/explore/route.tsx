@@ -16,7 +16,7 @@ import { parseExploreWebdavPath } from "~/utils/path";
 import { ItemMenu } from "./item-menu/item-menu";
 import { ConfirmModal } from "~/components/confirm-modal/confirm-modal";
 import { classNames } from "~/utils/styling";
-import { Icon } from "~/components/ui";
+import { Icon, Checkbox, Button } from "~/components/ui";
 
 export type ExplorePageData = {
     parentDirectories: string[],
@@ -268,18 +268,22 @@ function Body(props: ExplorePageData) {
     const showSkeleton = isNavigating;
 
     return (
-        <div className="absolute flex min-h-full min-w-full flex-col px-4 py-4 text-base text-slate-300 md:px-8">
+        <div className="absolute flex min-h-full min-w-full flex-col px-4 py-4 text-base text-base-content/70 md:px-8">
             <Breadcrumbs parentDirectories={parentDirectories} />
             {!showSkeleton && props.error === "not-found" && (
-                <div className="surface-card my-4 flex min-h-[320px] flex-col items-center justify-center gap-3 border border-slate-700/70 px-6 text-center">
-                    <Icon name="folder_off" className="!text-[48px] text-amber-400" />
-                    <h2 className="text-xl font-semibold text-white">Directory unavailable</h2>
-                    <p className="max-w-md text-sm text-slate-400">
-                        This WebDAV directory does not exist, may have moved, or is still initializing.
-                    </p>
-                    <Link to="/explore" className="button-base button-small bg-blue-600 text-white hover:bg-blue-700">
-                        WebDAV root
-                    </Link>
+                <div className="card bg-base-200 border-base-content/10 my-4 min-h-[320px] shadow-md">
+                    <div className="card-body items-center justify-center text-center">
+                        <Icon name="folder_off" className="!text-[48px] text-warning" />
+                        <h2 className="card-title text-xl">Directory unavailable</h2>
+                        <p className="text-base-content/60 max-w-md text-sm">
+                            This WebDAV directory does not exist, may have moved, or is still initializing.
+                        </p>
+                        <div className="card-actions justify-center">
+                            <Link to="/explore" className="btn btn-primary btn-sm">
+                                WebDAV root
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             )}
             {props.error === null && <>
@@ -353,7 +357,7 @@ function Body(props: ExplorePageData) {
                                     />
                                 )}
                                 <a href={getFilePath(x as ExploreFile)} className={styles["item-content"]}>
-                                    <Icon name={getIcon(x as ExploreFile)} className="shrink-0 !text-[34px] text-slate-400" />
+                                    <Icon name={getIcon(x as ExploreFile)} className="text-base-content/50 shrink-0 !text-[34px]" />
                                     <div className={styles["item-info"]}>
                                         <div className={styles["item-name"]}>{x.name}</div>
                                         <div className={styles["item-size"]}>{formatFileSize(x.size)}</div>
@@ -407,36 +411,36 @@ type ToolbarProps = {
 function Toolbar(props: ToolbarProps) {
     const sortValue = `${props.sortKey}:${props.sortDir}`;
     return (
-        <div className={styles.toolbar}>
-            <div className={styles["toolbar-row"]}>
+        <div className="mb-4 flex flex-col gap-2">
+            <div className="flex flex-row flex-wrap items-center gap-2.5">
                 {props.canSelectAll && (
                     <label
-                        className={styles["select-all"]}
+                        className="border-base-content/10 bg-base-200 flex h-[38px] w-[38px] shrink-0 cursor-pointer items-center justify-center rounded-lg border"
                         title={props.allSelected ? "Clear selection" : "Select all"}
                     >
-                        <input
-                            type="checkbox"
+                        <Checkbox
                             checked={props.allSelected}
                             ref={el => { if (el) el.indeterminate = props.someSelected; }}
                             onChange={props.onToggleAll}
                             aria-label="Select all visible items"
+                            className="checkbox-sm"
                         />
                     </label>
                 )}
-                <div className={styles["search-wrap"]}>
+                <div className="relative min-w-[200px] flex-1">
                     <SearchIcon />
                     <input
                         type="search"
                         value={props.query}
                         onChange={e => props.onQueryChange(e.target.value)}
                         placeholder="Filter by name..."
-                        className={styles["search-input"]}
+                        className="input input-sm w-full pr-8 pl-9"
                         aria-label="Filter items"
                     />
                     {props.query && (
                         <button
                             type="button"
-                            className={styles["search-clear"]}
+                            className="btn btn-ghost btn-xs btn-circle absolute top-1/2 right-1 -translate-y-1/2"
                             onClick={() => props.onQueryChange("")}
                             aria-label="Clear filter"
                         >
@@ -445,7 +449,7 @@ function Toolbar(props: ToolbarProps) {
                     )}
                 </div>
                 <select
-                    className={styles.sort}
+                    className="select select-sm"
                     value={sortValue}
                     onChange={e => {
                         const [k, d] = e.target.value.split(":") as [SortKey, SortDir];
@@ -461,16 +465,21 @@ function Toolbar(props: ToolbarProps) {
                 </select>
                 <button
                     type="button"
-                    className={classNames([styles.refresh, props.isRefreshing && styles["refresh-spinning"]])}
+                    className={classNames([
+                        "btn btn-ghost btn-square btn-sm",
+                        props.isRefreshing && "btn-disabled",
+                    ])}
                     onClick={props.onRefresh}
                     disabled={props.isRefreshing}
                     aria-label="Refresh"
                     title="Refresh"
                 >
-                    <RefreshIcon />
+                    {props.isRefreshing
+                        ? <span className="loading loading-spinner loading-xs" />
+                        : <RefreshIcon />}
                 </button>
             </div>
-            <div className={styles.stats}>
+            <div className="text-base-content/50 pl-0.5 text-xs">
                 {props.isFiltered
                     ? `${props.showingCount} of ${props.totalCount} · `
                     : ""}
@@ -482,25 +491,15 @@ function Toolbar(props: ToolbarProps) {
 
 function SelectionBar(props: { count: number, onClear: () => void, onDelete: () => void }) {
     return (
-        <div className={styles["selection-bar"]} role="region" aria-label="Bulk actions">
-            <div className={styles["selection-count"]}>
-                {props.count} selected
-            </div>
-            <div className={styles["selection-actions"]}>
-                <button
-                    type="button"
-                    className={styles["selection-clear"]}
-                    onClick={props.onClear}
-                >
+        <div className="alert bg-base-200 border-base-content/10 mb-3 flex-row items-center justify-between shadow-sm" role="region" aria-label="Bulk actions">
+            <span className="text-sm font-medium">{props.count} selected</span>
+            <div className="flex gap-2">
+                <Button variant="ghost" size="small" onClick={props.onClear}>
                     Clear
-                </button>
-                <button
-                    type="button"
-                    className={styles["selection-delete"]}
-                    onClick={props.onDelete}
-                >
+                </Button>
+                <Button variant="danger" size="small" onClick={props.onDelete}>
                     Delete {props.count}
-                </button>
+                </Button>
             </div>
         </div>
     );
@@ -509,56 +508,54 @@ function SelectionBar(props: { count: number, onClear: () => void, onDelete: () 
 function EmptyState(props: { isFiltered: boolean, onClearFilter: () => void }) {
     if (props.isFiltered) {
         return (
-            <div className={styles.empty}>
-                <div className={styles["empty-title"]}>No matches</div>
-                <div className={styles["empty-subtitle"]}>Nothing in this folder matches your filter.</div>
-                <button
-                    type="button"
-                    className={styles["empty-action"]}
-                    onClick={props.onClearFilter}
-                >
-                    Clear filter
-                </button>
+            <div className="card bg-base-200 border-base-content/20 border-dashed shadow-none">
+                <div className="card-body items-center text-center">
+                    <h3 className="text-base font-medium">No matches</h3>
+                    <p className="text-base-content/60 text-sm">Nothing in this folder matches your filter.</p>
+                    <div className="card-actions justify-center">
+                        <Button variant="primary" size="small" onClick={props.onClearFilter}>
+                            <Icon name="filter_alt_off" className="!text-[18px]" />
+                            Clear filter
+                        </Button>
+                    </div>
+                </div>
             </div>
         );
     }
     return (
-        <div className={styles.empty}>
-            <div className={styles["empty-title"]}>This folder is empty</div>
-            <div className={styles["empty-subtitle"]}>Items downloaded into this folder will appear here.</div>
+        <div className="card bg-base-200 border-base-content/20 border-dashed shadow-none">
+            <div className="card-body items-center text-center">
+                <h3 className="text-base font-medium">This folder is empty</h3>
+                <p className="text-base-content/60 text-sm">Items downloaded into this folder will appear here.</p>
+            </div>
         </div>
     );
 }
 
 function CheckCell(props: { name: string, checked: boolean, onToggle: (name: string, shiftKey: boolean) => void }) {
     return (
-        <div
-            className={styles["check-cell"]}
-            role="checkbox"
-            aria-checked={props.checked}
-            aria-label={`Select ${props.name}`}
-            tabIndex={0}
-            onClick={e => {
-                e.stopPropagation();
-                e.preventDefault();
-                props.onToggle(props.name, e.shiftKey);
-            }}
-            onKeyDown={e => {
-                if (e.key === " " || e.key === "Enter") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    props.onToggle(props.name, e.shiftKey);
-                }
-            }}
+        <label
+            className={`${styles["check-cell"]} flex shrink-0 cursor-pointer items-center`}
+            onClick={e => e.stopPropagation()}
         >
-            <input
-                type="checkbox"
+            <Checkbox
                 checked={props.checked}
-                readOnly
-                tabIndex={-1}
-                aria-hidden="true"
+                onClick={e => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    props.onToggle(props.name, e.shiftKey);
+                }}
+                onKeyDown={e => {
+                    if (e.key === " " || e.key === "Enter") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        props.onToggle(props.name, e.shiftKey);
+                    }
+                }}
+                aria-label={`Select ${props.name}`}
+                className="checkbox-sm"
             />
-        </div>
+        </label>
     );
 }
 
@@ -665,7 +662,7 @@ function getClassName(item: DirectoryItem | ExploreFile, isSelected: boolean) {
 
 function SearchIcon() {
     return (
-        <svg className={styles["search-icon"]} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg className="text-base-content/50 pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="7" />
             <path d="m21 21-4.3-4.3" />
         </svg>

@@ -1,5 +1,6 @@
 import { Button } from "~/components/ui/button";
 import { Spinner } from "~/components/ui/feedback";
+import { SettingsPage } from "~/components/ui";
 import { Checkbox, Input } from "~/components/ui/form";
 import { Icon } from "~/components/ui/icon";
 import { type Dispatch, type SetStateAction, useState, useCallback, useEffect } from "react";
@@ -49,7 +50,7 @@ export function RcloneSettings({ config, setNewConfig }: RcloneSettingsProps) {
     }, [config]);
 
     return (
-        <div className={'space-y-6'}>
+        <SettingsPage>
             <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm text-slate-300">
                     <Checkbox
@@ -59,7 +60,7 @@ export function RcloneSettings({ config, setNewConfig }: RcloneSettingsProps) {
                     onChange={e => setNewConfig({ ...config, "rclone.rc-enabled": "" + e.target.checked })}  />
                     <span>{`Enable Rclone RC Server Notifications`}</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="rclone-rc-enabled-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="rclone-rc-enabled-help">
                     When enabled, nzbdav will automatically notify your rclone mount via the RC API whenever files are added or removed on the webdav. This allows setting a high dir-cache-time setting on Rclone.
                 </p>
             </div>
@@ -96,7 +97,7 @@ export function RcloneSettings({ config, setNewConfig }: RcloneSettingsProps) {
                         </Button>
                     )}
                 </div>
-                <p className="text-xs leading-relaxed text-slate-400" id="rclone-host-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="rclone-host-help">
                     The host address of the rclone RC API.
                 </p>
             </div>
@@ -110,7 +111,7 @@ export function RcloneSettings({ config, setNewConfig }: RcloneSettingsProps) {
                     aria-describedby="rclone-user-help"
                     value={config["rclone.user"]}
                     onChange={e => setNewConfig({ ...config, "rclone.user": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="rclone-user-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="rclone-user-help">
                     The username for authenticating to the rclone RC API. This field is optional.
                 </p>
             </div>
@@ -124,11 +125,11 @@ export function RcloneSettings({ config, setNewConfig }: RcloneSettingsProps) {
                     aria-describedby="rclone-pass-help"
                     value={config["rclone.pass"]}
                     onChange={e => setNewConfig({ ...config, "rclone.pass": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="rclone-pass-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="rclone-pass-help">
                     The password for authenticating to the rclone RC API. This field is optional.
                 </p>
             </div>
-        </div>
+        </SettingsPage>
     );
 }
 

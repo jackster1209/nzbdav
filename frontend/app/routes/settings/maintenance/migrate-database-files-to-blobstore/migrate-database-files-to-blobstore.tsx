@@ -30,7 +30,7 @@ export function MigrateDatabaseFilesToBlobstore({ savedConfig }: ConvertStrmToSy
     return (
         <div className={'space-y-3'}>
             <div className="space-y-2">
-                <p className="text-xs leading-relaxed text-slate-400" id="blob-task-progress-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="blob-task-progress-help">
                     <br />
                     This task runs automatically in the background to optimize the database. No action is required on your part.
                     You can simply track the progress here. For context, the sqlite database used by the backend is slow at reading and writing large data blobs.

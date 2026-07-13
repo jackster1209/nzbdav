@@ -1,24 +1,32 @@
+/* Shared settings page rhythm — width/padding owned by SettingsPanel. */
 .container {
-    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
 }
 
 .section {
-    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .sectionTitle {
+    font-size: 0.95rem;
     font-weight: 600;
-    margin-bottom: 4px;
+    color: var(--color-base-content, var(--text-primary, inherit));
 }
 
 .sectionDescription {
-    color: var(--text-muted);
-    font-size: 13px;
-    margin-bottom: 14px;
+    color: color-mix(in oklab, var(--color-base-content, currentColor) 55%, transparent);
+    font-size: 0.8125rem;
+    line-height: 1.45;
 }
 
 .input {
-    margin-bottom: 4px;
+    width: 100%;
+    max-width: 28rem;
 }
 
 .input::placeholder {
@@ -26,8 +34,8 @@
 }
 
 .hint {
-    color: var(--text-muted);
-    font-size: 12px;
-    margin-top: 4px;
-    margin-bottom: 0;
+    color: color-mix(in oklab, var(--color-base-content, currentColor) 45%, transparent);
+    font-size: 11px;
+    line-height: 1.45;
+    margin: 0;
 }

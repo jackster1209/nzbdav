@@ -1,5 +1,5 @@
 import { type Dispatch, type SetStateAction } from "react";
-import { NativeForm as Form } from "~/components/ui";
+import { NativeForm as Form, SettingsIntro } from "~/components/ui";
 import styles from "./watchtower.module.css";
 
 const GB = 1024 * 1024 * 1024;
@@ -39,15 +39,12 @@ export function WatchtowerSettings({ config, setNewConfig }: WatchtowerSettingsP
 
     return (
         <div className={styles.container}>
-            <div className={styles.section}>
-                <div className={styles.sectionTitle}>Watchtower</div>
-                <div className={styles.sectionDescription}>
-                    Keeps the titles on your lists pre-resolved to a healthy release and re-verified
-                    over time, so each is found and ready before you need it. Pointer-only and
-                    safe-by-default: it stores segment maps (kilobytes), never video, and respects your
-                    indexer caps. Manage your lists on the <b>Watchtower</b> page; tune the engine here.
-                </div>
-            </div>
+            <SettingsIntro>
+                Keeps the titles on your lists pre-resolved to a healthy release and re-verified
+                over time, so each is found and ready before you need it. Pointer-only and
+                safe-by-default: it stores segment maps (kilobytes), never video, and respects your
+                indexer caps. Manage your lists on the <b>Watchtower</b> page; tune the engine here.
+            </SettingsIntro>
 
             <Form.Group className={styles.section}>
                 <Form.Check

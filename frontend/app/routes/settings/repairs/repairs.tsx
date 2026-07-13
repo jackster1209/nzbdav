@@ -1,3 +1,4 @@
+import { SettingsPage } from "~/components/ui";
 import { Checkbox, Input } from "~/components/ui/form";
 import { type Dispatch, type SetStateAction } from "react";
 import { isPositiveInteger } from "../usenet/usenet";
@@ -19,7 +20,7 @@ export function RepairsSettings({ config, setNewConfig }: RepairsSettingsProps) 
         : "When enabled, usenet items will be continuously monitored for health. Unhealthy items will be removed and replaced. This setting can only be enabled once your Library-Directory and Radarr/Sonarr instances are configured.";
 
     return (
-        <div className={'space-y-6'}>
+        <SettingsPage>
             <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm text-slate-300">
                     <Checkbox
@@ -30,7 +31,7 @@ export function RepairsSettings({ config, setNewConfig }: RepairsSettingsProps) 
                     onChange={e => setNewConfig({ ...config, "repair.enable": "" + e.target.checked })}  />
                     <span>{`Enable Background Repairs`}</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="enable-repairs-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="enable-repairs-help">
                     {helpText}
                 </p>
             </div>
@@ -45,7 +46,7 @@ export function RepairsSettings({ config, setNewConfig }: RepairsSettingsProps) 
                     placeholder="50"
                     value={config["repair.healthcheck-concurrency"] ?? ""}
                     onChange={e => setNewConfig({ ...config, "repair.healthcheck-concurrency": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="healthcheck-concurrency-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="healthcheck-concurrency-help">
                     The maximum number of concurrent NNTP connections used for health check STAT commands.
                     Lower values reduce connection pressure on your usenet providers during health checks.
                     Capped at your total provider pool size.
@@ -61,12 +62,12 @@ export function RepairsSettings({ config, setNewConfig }: RepairsSettingsProps) 
                     aria-describedby="library-dir-help"
                     value={config["media.library-dir"]}
                     onChange={e => setNewConfig({ ...config, "media.library-dir": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="library-dir-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="library-dir-help">
                     The path to your organized media library that contains all your imported symlinks or *.strm files.
                     Make sure this path is visible to your NzbDAV container.
                 </p>
             </div>
-        </div>
+        </SettingsPage>
     );
 }
 

@@ -18,7 +18,6 @@ enum RepairAction {
 }
 
 export function HealthStats({ stats }: HealthStatsProps) {
-    // Calculate totals from HealthCheckStats array
     const totalChecked = stats
         .reduce((sum, stat) => sum + stat.count, 0);
     const healthy = stats
@@ -36,35 +35,45 @@ export function HealthStats({ stats }: HealthStatsProps) {
     };
 
     return (
-        <section className="w-full rounded-lg border border-slate-700/70 bg-gray-800 p-4 shadow-md md:p-6">
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-xl font-semibold text-white">Overview</h2>
-                <Badge className="px-3 py-1 text-xs text-slate-400">Last 30 Days</Badge>
-            </div>
-
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md bg-slate-700/70 max-[370px]:grid-cols-1 min-[601px]:grid-cols-4">
-                <div className="bg-gray-800 p-4 text-center md:p-5">
-                    <Icon name="fact_check" className="mb-2 !text-[22px] text-slate-400" />
-                    <div className="font-mono text-3xl font-bold leading-none text-white md:text-4xl">{totalChecked}</div>
-                    <div className="mt-2 text-xs font-medium text-slate-400">Total Checked</div>
+        <section className="card w-full border border-base-content/10 bg-base-100 shadow-sm">
+            <div className="card-body gap-4 p-4 md:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <h2 className="card-title text-xl">Overview</h2>
+                    <Badge className="badge-ghost">Last 30 Days</Badge>
                 </div>
 
-                <div className="bg-gray-800 p-4 text-center md:p-5">
-                    <Icon name="check_circle" filled className="mb-2 !text-[22px] text-emerald-400" />
-                    <div className="font-mono text-3xl font-bold leading-none text-emerald-400 md:text-4xl">{healthy}</div>
-                    <div className="mt-2 text-xs font-medium text-slate-400">Healthy ({getPercentage(healthy)}%)</div>
-                </div>
+                <div className="stats stats-vertical w-full shadow sm:stats-horizontal">
+                    <div className="stat place-items-center">
+                        <div className="stat-figure text-base-content/50">
+                            <Icon name="fact_check" className="!text-[22px]" />
+                        </div>
+                        <div className="stat-title">Total Checked</div>
+                        <div className="stat-value font-mono text-3xl md:text-4xl">{totalChecked}</div>
+                    </div>
 
-                <div className="bg-gray-800 p-4 text-center md:p-5">
-                    <Icon name="build_circle" filled className="mb-2 !text-[22px] text-blue-400" />
-                    <div className="font-mono text-3xl font-bold leading-none text-blue-400 md:text-4xl">{repaired}</div>
-                    <div className="mt-2 text-xs font-medium text-slate-400">Repaired ({getPercentage(repaired)}%)</div>
-                </div>
+                    <div className="stat place-items-center">
+                        <div className="stat-figure text-success">
+                            <Icon name="check_circle" filled className="!text-[22px]" />
+                        </div>
+                        <div className="stat-title">Healthy ({getPercentage(healthy)}%)</div>
+                        <div className="stat-value font-mono text-3xl text-success md:text-4xl">{healthy}</div>
+                    </div>
 
-                <div className="bg-gray-800 p-4 text-center md:p-5">
-                    <Icon name="delete" filled className="mb-2 !text-[22px] text-red-400" />
-                    <div className="font-mono text-3xl font-bold leading-none text-red-400 md:text-4xl">{deleted}</div>
-                    <div className="mt-2 text-xs font-medium text-slate-400">Deleted ({getPercentage(deleted)}%)</div>
+                    <div className="stat place-items-center">
+                        <div className="stat-figure text-info">
+                            <Icon name="build_circle" filled className="!text-[22px]" />
+                        </div>
+                        <div className="stat-title">Repaired ({getPercentage(repaired)}%)</div>
+                        <div className="stat-value font-mono text-3xl text-info md:text-4xl">{repaired}</div>
+                    </div>
+
+                    <div className="stat place-items-center">
+                        <div className="stat-figure text-error">
+                            <Icon name="delete" filled className="!text-[22px]" />
+                        </div>
+                        <div className="stat-title">Deleted ({getPercentage(deleted)}%)</div>
+                        <div className="stat-value font-mono text-3xl text-error md:text-4xl">{deleted}</div>
+                    </div>
                 </div>
             </div>
         </section>

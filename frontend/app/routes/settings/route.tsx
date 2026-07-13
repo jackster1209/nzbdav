@@ -1,5 +1,6 @@
 import { Button } from "~/components/ui/button";
-import { TabPanel, Tabs, type TabOption } from "~/components/ui/tabs";
+import { Alert } from "~/components/ui/feedback";
+import { SettingsPanel } from "~/components/ui/settings-nav";
 import type { Route } from "./+types/route";
 import { backendClient } from "~/clients/backend-client.server";
 import { isUsenetSettingsUpdated, UsenetSettings } from "./usenet/usenet";
@@ -16,9 +17,11 @@ import { isWatchtowerSettingsUpdated, WatchtowerSettings } from "./watchtower/wa
 import { isWardenSettingsUpdated, WardenSettings } from "./warden/warden";
 import { isRcloneSettingsUpdated, RcloneSettings } from "./rclone/rclone";
 import { useCallback, useState } from "react";
-import { useBlocker } from "react-router";
+import { useBlocker, useSearchParams } from "react-router";
 import { ConfirmModal } from "~/components/confirm-modal/confirm-modal";
 import { getAppVersion } from "~/utils/version.server";
+import { parseSettingsTab, getSettingsTabItem } from "./settings-tabs";
+import { Icon } from "~/components/ui";
 
 const defaultConfig = {
     "general.base-url": "",
@@ -129,10 +132,8 @@ const defaultConfig = {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-    // fetch the config items
     const configItems = await backendClient.getConfig(Object.keys(defaultConfig));
 
-    // transform to a map
     const config: Record<string, string> = defaultConfig;
     for (const item of configItems) {
         config[item.configName] = item.configValue;
@@ -156,29 +157,15 @@ type BodyProps = {
 };
 
 function Body(props: BodyProps) {
-    // stateful variables
+    const [searchParams] = useSearchParams();
+    const activeTab = parseSettingsTab(searchParams.get("tab"));
+    const activeTabItem = getSettingsTabItem(activeTab);
     const [config, setConfig] = useState(props.config);
     const [newConfig, setNewConfig] = useState(config);
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
-    type SettingsTab =
-        | "usenet"
-        | "indexers"
-        | "profiles"
-        | "watchdog"
-        | "preflight"
-        | "watchtower"
-        | "warden"
-        | "sabnzbd"
-        | "webdav"
-        | "arrs"
-        | "repairs"
-        | "rclone"
-        | "maintenance";
-    const [activeTab, setActiveTab] = useState<SettingsTab>("usenet");
 
-    // derived variables
     const iseUsenetUpdated = isUsenetSettingsUpdated(config, newConfig);
     const isSabnzbdUpdated = isSabnzbdSettingsUpdated(config, newConfig);
     const isWebdavUpdated = isWebdavSettingsUpdated(config, newConfig);
@@ -195,35 +182,6 @@ function Body(props: BodyProps) {
     const isUpdated = iseUsenetUpdated || isSabnzbdUpdated || isWebdavUpdated || isArrsUpdated || isIndexersUpdated || isProfilesUpdated || isRepairsUpdated || isWatchdogUpdated || isPreflightUpdated || isRcloneUpdated || isMaintenanceUpdated || isWatchtowerUpdated || isWardenUpdated;
     const navigationBlocker = useNavigationBlocker(isUpdated);
 
-    const usenetTitle = iseUsenetUpdated ? "Usenet •" : "Usenet";
-    const indexersTitle = isIndexersUpdated ? "Indexers •" : "Indexers";
-    const profilesTitle = isProfilesUpdated ? "Search Profiles •" : "Search Profiles";
-    const watchdogTitle = isWatchdogUpdated ? "Watchdog •" : "Watchdog";
-    const preflightTitle = isPreflightUpdated ? "Preflight •" : "Preflight";
-    const watchtowerTitle = isWatchtowerUpdated ? "Watchtower •" : "Watchtower";
-    const wardenTitle = isWardenUpdated ? "Warden •" : "Warden";
-    const sabnzbdTitle = isSabnzbdUpdated ? "SABnzbd •" : "SABnzbd";
-    const webdavTitle = isWebdavUpdated ? "WebDAV •" : "WebDAV";
-    const arrsTitle = isArrsUpdated ? "Radarr/Sonarr •" : "Radarr/Sonarr";
-    const repairsTitle = isRepairsUpdated ? "Repairs •" : "Repairs";
-    const rcloneTitle = isRcloneUpdated ? "Rclone Server •" : "Rclone Server";
-    const maintenanceTitle = isMaintenanceUpdated ? "Maintenance •" : "Maintenance";
-    const tabOptions: TabOption<SettingsTab>[] = [
-        { id: "usenet", label: usenetTitle, icon: "cloud" },
-        { id: "indexers", label: indexersTitle, icon: "travel_explore" },
-        { id: "profiles", label: profilesTitle, icon: "tune" },
-        { id: "watchdog", label: watchdogTitle, icon: "monitor_heart" },
-        { id: "preflight", label: preflightTitle, icon: "fact_check" },
-        { id: "watchtower", label: watchtowerTitle, icon: "cell_tower" },
-        { id: "warden", label: wardenTitle, icon: "shield" },
-        { id: "sabnzbd", label: sabnzbdTitle, icon: "download" },
-        { id: "webdav", label: webdavTitle, icon: "folder_shared" },
-        { id: "arrs", label: arrsTitle, icon: "sync_alt" },
-        { id: "repairs", label: repairsTitle, icon: "build" },
-        { id: "rclone", label: rcloneTitle, icon: "dns" },
-        { id: "maintenance", label: maintenanceTitle, icon: "settings_suggest" },
-    ];
-
     const saveButtonLabel = isSaving ? "Saving..."
         : !isUpdated && isSaved ? "Saved"
         : !isUpdated && !isSaved ? "There are no changes to save"
@@ -238,7 +196,6 @@ function Body(props: BodyProps) {
         : "secondary";
     const isSaveButtonDisabled = saveButtonLabel !== "Save";
 
-    // events
     const onClear = useCallback(() => {
         setNewConfig(config);
         setIsSaved(false);
@@ -272,9 +229,14 @@ function Body(props: BodyProps) {
     }, [config, newConfig, setIsSaving, setIsSaved, setConfig]);
 
     return (
-        <div className="flex flex-col gap-6 px-4 py-4 md:px-8">
-            <Tabs options={tabOptions} value={activeTab} onChange={setActiveTab} />
-            <TabPanel>
+        <div className="flex min-h-full flex-col gap-6 px-4 py-4 md:px-8">
+            <SettingsPanel>
+                <header className="mb-6 flex items-center gap-3 border-b border-base-content/10 pb-4">
+                    <Icon name={activeTabItem.icon} className="!text-[28px] text-base-content/70" />
+                    <h1 className="text-2xl font-semibold tracking-tight text-base-content">
+                        {activeTabItem.label}
+                    </h1>
+                </header>
                 {activeTab === "usenet" && <UsenetSettings config={newConfig} setNewConfig={setNewConfig} />}
                 {activeTab === "indexers" && <IndexersSettings config={newConfig} setNewConfig={setNewConfig} savedConfig={config} />}
                 {activeTab === "profiles" && <ProfilesSettings config={newConfig} setNewConfig={setNewConfig} />}
@@ -288,18 +250,20 @@ function Body(props: BodyProps) {
                 {activeTab === "repairs" && <RepairsSettings config={newConfig} setNewConfig={setNewConfig} />}
                 {activeTab === "rclone" && <RcloneSettings config={newConfig} setNewConfig={setNewConfig} />}
                 {activeTab === "maintenance" && <Maintenance savedConfig={config} config={newConfig} setNewConfig={setNewConfig} />}
-            </TabPanel>
+            </SettingsPanel>
+
             {saveError && (
-                <div role="alert" className="rounded border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+                <Alert variant="danger" className="sticky bottom-20 z-10 text-sm">
                     {saveError}
-                </div>
+                </Alert>
             )}
-            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-700/70 pt-4">
+            <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap justify-end gap-2 border-t border-base-content/10 bg-base-300/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
                 {isUpdated && <Button
                     className="min-w-28"
-                    variant="secondary"
+                    variant="outline"
                     disabled={!isUpdated}
                     onClick={onClear}>
+                    <Icon name="undo" className="!text-[18px]" />
                     Clear
                 </Button>}
                 <Button
@@ -307,6 +271,7 @@ function Body(props: BodyProps) {
                     variant={saveButtonVariant}
                     disabled={isSaveButtonDisabled}
                     onClick={onSave}>
+                    <Icon name={isSaving ? "progress_activity" : saveButtonLabel === "Saved" ? "check" : "save"} className={`!text-[18px] ${isSaving ? "animate-spin" : ""}`} />
                     {saveButtonLabel}
                 </Button>
             </div>
@@ -338,7 +303,13 @@ function getChangedConfig(
 }
 
 function useNavigationBlocker(isConfigUpdated: boolean) {
-    const blocker = useBlocker(isConfigUpdated);
+    const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+        if (!isConfigUpdated) return false;
+        const stayingInSettings =
+            currentLocation.pathname.startsWith("/settings")
+            && nextLocation.pathname.startsWith("/settings");
+        return !stayingInSettings;
+    });
 
     const onConfirmNavigation = useCallback(() => {
         if (blocker.state === "blocked") {

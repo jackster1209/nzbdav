@@ -1,6 +1,6 @@
 import styles from "./indexers.module.css";
 import { type Dispatch, type SetStateAction, useState, useCallback, useEffect, useMemo } from "react";
-import { Button, Spinner, Textarea } from "~/components/ui";
+import { Button, Icon, Spinner, Textarea } from "~/components/ui";
 import { isMaskedSecret } from "~/utils/config-mask";
 
 type IndexersSettingsProps = {
@@ -463,7 +463,8 @@ export function IndexersSettings({ config, setNewConfig, savedConfig }: Indexers
                                 value={excludeSyncRefresh}
                                 onChange={e => handleSyncRefreshChange(e.target.value)} />
                             <span className={styles["label-hint"]}>minutes</span>
-                            <Button variant="secondary" size="small" onClick={handleSyncNow} disabled={isSyncing}>
+                            <Button variant="primary" size="small" onClick={handleSyncNow} disabled={isSyncing}>
+                                <Icon name={isSyncing ? "progress_activity" : "sync"} className={`!text-[18px] ${isSyncing ? "animate-spin" : ""}`} />
                                 {isSyncing ? "Syncing…" : "Sync now"}
                             </Button>
                         </div>
@@ -1407,7 +1408,7 @@ function IndexerModal({ show, indexer, onClose, onSave }: IndexerModalProps) {
                         </Button>
                     </div>
                     <div className={styles["modal-footer-right"]}>
-                        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+                        <Button variant="outline" onClick={onClose}>Cancel</Button>
                         <Button onClick={handleSave} disabled={!isFormValid}>
                             {indexer ? "Save Indexer" : "Add Indexer"}
                         </Button>

@@ -1,3 +1,4 @@
+import { SettingsPage } from "~/components/ui";
 import { Checkbox, Input, Select } from "~/components/ui/form";
 import { RemoveUnlinkedFiles } from "./remove-unlinked-files/remove-unlinked-files";
 import { ConvertStrmToSymlinks } from "./strm-to-symlinks/strm-to-symlinks";
@@ -13,8 +14,7 @@ type MaintenanceProps = {
 
 export function Maintenance({ savedConfig, config, setNewConfig }: MaintenanceProps) {
     return (
-        <div>
-            <div className={'space-y-6'}>
+        <SettingsPage>
                 <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm text-slate-300">
                     <Checkbox
@@ -24,7 +24,7 @@ export function Maintenance({ savedConfig, config, setNewConfig }: MaintenancePr
                         onChange={e => setNewConfig({ ...config, "db.is-startup-vacuum-enabled": "" + e.target.checked })}  />
                     <span>Perform Database Vacuum on Start</span>
                 </label>
-                    <p className="text-xs leading-relaxed text-slate-400" id="db-startup-vacuum-enabled-help">
+                    <p className="text-[11px] leading-relaxed text-base-content/45" id="db-startup-vacuum-enabled-help">
                         When enabled, nzbdav will run a SQLite VACUUM on the database at every startup. This reclaims unused disk space and can improve query performance over time, but may increase startup time for large databases.
                     </p>
                 </div>
@@ -45,7 +45,7 @@ export function Maintenance({ savedConfig, config, setNewConfig }: MaintenancePr
                         })}
                         className="max-w-xs"
                     />
-                    <p className="text-xs leading-relaxed text-slate-400" id="history-retention-days-help">
+                    <p className="text-[11px] leading-relaxed text-base-content/45" id="history-retention-days-help">
                         Automatically prune SAB history rows older than this many days. Mounted WebDAV content is preserved.
                         Set to 0 to keep everything. Can also be set with DATABASE_HISTORY_RETENTION_DAYS.
                     </p>
@@ -67,7 +67,7 @@ export function Maintenance({ savedConfig, config, setNewConfig }: MaintenancePr
                         })}
                         className="max-w-xs"
                     />
-                    <p className="text-xs leading-relaxed text-slate-400" id="healthcheck-retention-days-help">
+                    <p className="text-[11px] leading-relaxed text-base-content/45" id="healthcheck-retention-days-help">
                         Automatically prune health-check result rows older than this many days. Set to 0 to keep everything.
                         Can also be set with the DATABASE_HEALTHCHECK_RETENTION_DAYS environment variable.
                     </p>
@@ -129,12 +129,11 @@ export function Maintenance({ savedConfig, config, setNewConfig }: MaintenancePr
                             <option value="pm">pm</option>
                         </Select>
                     </div>
-                    <p className="text-xs leading-relaxed text-slate-400" id="remove-orphaned-schedule-help">
+                    <p className="text-[11px] leading-relaxed text-base-content/45" id="remove-orphaned-schedule-help">
                         When enabled, the "Remove Orphaned Files" task will run every day at the specified time.
                         You may need to set the TZ env variable to ensure the correct timezone.
                     </p>
                 </div>
-            </div>
             <div className={'mt-6 space-y-3'}>
                 <hr />
                 <div className="space-y-3">
@@ -172,7 +171,7 @@ export function Maintenance({ savedConfig, config, setNewConfig }: MaintenancePr
                     </details>
                 </div>
             </div>
-        </div>
+        </SettingsPage>
     );
 }
 

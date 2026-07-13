@@ -36,7 +36,7 @@ export function ResetHealthCheckStats() {
 
     return (
         <div className="space-y-3">
-            <p className="text-xs leading-relaxed text-slate-400">
+            <p className="text-[11px] leading-relaxed text-base-content/45">
                 Clears all accumulated health-check history and counters (repairs, deletions, healthy/unhealthy totals).
             </p>
             <Button

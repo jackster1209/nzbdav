@@ -19,7 +19,7 @@ export function LibrarySettings({ savedConfig, config, setNewConfig }: LibrarySe
                     aria-describedby="library-dir-help"
                     value={config["media.library-dir"]}
                     onChange={e => setNewConfig({ ...config, "media.library-dir": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="library-dir-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="library-dir-help">
                     The path to your organized media library that contains all your imported symlinks.
                     Make sure this path is visible to your NzbDAV container.
                 </p>

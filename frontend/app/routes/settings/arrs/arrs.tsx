@@ -1,5 +1,6 @@
 import { Button } from "~/components/ui/button";
 import { Spinner } from "~/components/ui/feedback";
+import { SettingsPage } from "~/components/ui";
 import { Input, Select } from "~/components/ui/form";
 import { Icon } from "~/components/ui/icon";
 import { type Dispatch, type SetStateAction, useState, useCallback, useEffect } from "react";
@@ -193,16 +194,17 @@ export function ArrsSettings({ config, setNewConfig }: ArrsSettingsProps) {
 
 
     return (
-        <div className={'space-y-6'}>
+        <SettingsPage>
             <div className={'space-y-4'}>
                 <div className={'flex items-center justify-between text-lg font-semibold text-white'}>
                     <div>Radarr Instances</div>
                     <Button variant="primary" size="small" onClick={addRadarrInstance}>
+                        <Icon name="add" className="!text-[18px]" />
                         Add
                     </Button>
                 </div>
                 {arrConfig.RadarrInstances.length === 0 ? (
-                    <p className={'rounded border border-slate-700/70 bg-slate-800/40 px-3 py-2 text-sm text-slate-400'}>No Radarr instances configured. Click on the "Add" button to get started.</p>
+                    <div role="alert" className="alert alert-info alert-soft text-sm">No Radarr instances configured. Click on the "Add" button to get started.</div>
                 ) : (
                     arrConfig.RadarrInstances.map((instance: any, index: number) =>
                         <InstanceForm
@@ -221,11 +223,12 @@ export function ArrsSettings({ config, setNewConfig }: ArrsSettingsProps) {
                 <div className={'flex items-center justify-between text-lg font-semibold text-white'}>
                     <div>Sonarr Instances</div>
                     <Button variant="primary" size="small" onClick={addSonarrInstance}>
+                        <Icon name="add" className="!text-[18px]" />
                         Add
                     </Button>
                 </div>
                 {arrConfig.SonarrInstances.length === 0 ? (
-                    <p className={'rounded border border-slate-700/70 bg-slate-800/40 px-3 py-2 text-sm text-slate-400'}>No Sonarr instances configured. Click on the "Add" button to get started.</p>
+                    <div role="alert" className="alert alert-info alert-soft text-sm">No Sonarr instances configured. Click on the "Add" button to get started.</div>
                 ) : (
                     arrConfig.SonarrInstances.map((instance: any, index: number) =>
                         <InstanceForm
@@ -240,34 +243,41 @@ export function ArrsSettings({ config, setNewConfig }: ArrsSettingsProps) {
                 )}
             </div>
             <hr />
-            <div className={'space-y-4'}>
-                <div className={'flex items-center justify-between text-lg font-semibold text-white'}>
-                    <div>Automatic Queue Management</div>
-                </div>
-                <p className={'rounded border border-slate-700/70 bg-slate-800/40 px-3 py-2 text-sm text-slate-400'}>
+            <div className="space-y-4">
+                <div className="text-lg font-semibold">Automatic Queue Management</div>
+                <div role="alert" className="alert alert-info alert-soft text-sm">
                     Configure what to do for items stuck in Radarr / Sonarr queues.
                     Different actions can be configured for different status messages.
-                    Only `usenet` queue items will be acted upon.
-                </p>
-                <ul>
-                    {queueStatusMessages.map((queueStatusMessage, index) =>
-                        <li key={index} className={'flex flex-col gap-2 border-b border-slate-700/50 py-3 sm:flex-row sm:items-center sm:justify-between'}>
-                            <div className={'text-sm text-slate-300 sm:max-w-[70%]'}>{queueStatusMessage.display}</div>
-                            <Select
-                                className={'w-full'}
-                                value={arrConfig.QueueRules.find((x: QueueRule) => x.Message == queueStatusMessage.searchTerm)?.Action ?? "0"}
-                                onChange={e => updateQueueAction(queueStatusMessage.searchTerm, Number(e.target.value))}
+                    Only usenet queue items will be acted upon.
+                </div>
+                <ul className="divide-y divide-base-content/10 rounded-box border border-base-content/10 bg-base-200">
+                    {queueStatusMessages.map((queueStatusMessage, index) => {
+                        const selectId = `queue-rule-${index}`;
+                        return (
+                            <li
+                                key={index}
+                                className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4"
                             >
-                                <option value="0">Do Nothing</option>
-                                <option value="1">Remove</option>
-                                <option value="2">Remove and Blocklist</option>
-                                <option value="3">Remove, Blocklist, and Search</option>
-                            </Select>
-                        </li>
-                    )}
+                                <label htmlFor={selectId} className="min-w-0 text-sm text-base-content/80">
+                                    {queueStatusMessage.display}
+                                </label>
+                                <Select
+                                    id={selectId}
+                                    className="select-sm w-full sm:w-auto sm:min-w-48 sm:justify-self-end"
+                                    value={arrConfig.QueueRules.find((x: QueueRule) => x.Message == queueStatusMessage.searchTerm)?.Action ?? "0"}
+                                    onChange={e => updateQueueAction(queueStatusMessage.searchTerm, Number(e.target.value))}
+                                >
+                                    <option value="0">Do Nothing</option>
+                                    <option value="1">Remove</option>
+                                    <option value="2">Remove and Blocklist</option>
+                                    <option value="3">Remove, Blocklist, and Search</option>
+                                </Select>
+                            </li>
+                        );
+                    })}
                 </ul>
             </div>
-        </div>
+        </SettingsPage>
     );
 }
 

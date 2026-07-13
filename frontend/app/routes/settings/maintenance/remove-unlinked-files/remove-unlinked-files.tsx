@@ -60,9 +60,10 @@ export function RemoveUnlinkedFiles({ savedConfig }: RemoveUnlinkedFilesProps) {
             className={'inline-flex'}
             disabled={!isRunButtonEnabled}
             onClick={onDryRun}
-            variant="secondary"
+            variant="warning"
             size="small"
         >
+            <Icon name="science" className="!text-[18px]" />
             perform a dry-run
         </Button>;
 
@@ -111,7 +112,7 @@ export function RemoveUnlinkedFiles({ savedConfig }: RemoveUnlinkedFilesProps) {
                             </>}
                         </div>
                     </div>
-                    <p className="text-xs leading-relaxed text-slate-400" id="cleanup-task-progress-help">
+                    <p className="text-[11px] leading-relaxed text-base-content/45" id="cleanup-task-progress-help">
                         <br />
                         This task will scan your organized media library for all symlinked or *.strm linked files.
                         Any file on the webdav that is not pointed to by your library will be deleted.

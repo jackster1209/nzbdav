@@ -1,7 +1,7 @@
 import styles from "./profiles.module.css";
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useMemo, useState } from "react";
 import { MultiCheckboxInput } from "~/components/multi-checkbox-input/multi-checkbox-input";
-import { Button, Field, Input, Label, Select, Toggle } from "~/components/ui";
+import { Button, Field, Icon, Input, Label, Select, Toggle } from "~/components/ui";
 
 type ProfilesSettingsProps = {
     config: Record<string, string>
@@ -121,7 +121,10 @@ export function ProfilesSettings({ config, setNewConfig }: ProfilesSettingsProps
             <div className={styles.section}>
                 <div className={styles.sectionHeader}>
                     <div>Search Profiles</div>
-                    <Button size="xsmall" onClick={add}>Add</Button>
+                    <Button size="xsmall" onClick={add}>
+                        <Icon name="add" className="!text-[16px]" />
+                        Add
+                    </Button>
                 </div>
                 {profileConfig.Profiles.length === 0 ? (
                     <p className={styles.alertMessage}>

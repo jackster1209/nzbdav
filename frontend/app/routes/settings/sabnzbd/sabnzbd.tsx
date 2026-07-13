@@ -1,5 +1,7 @@
 import { Button } from "~/components/ui/button";
+import { SettingsPage } from "~/components/ui";
 import { Checkbox, Input, Select } from "~/components/ui/form";
+import { Icon } from "~/components/ui/icon";
 import { useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { TagInput } from "~/components/tag-input/tag-input";
 import { MultiCheckboxInput } from "~/components/multi-checkbox-input/multi-checkbox-input";
@@ -21,7 +23,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
         useEnsureArticleExistanceSetting(config, setNewConfig);
 
     return (
-        <div className={'space-y-6'}>
+        <SettingsPage>
             <div className="space-y-2">
                 <label className="block text-sm font-medium text-slate-200" htmlFor="api-key-input">API Key</label>
                 <div className="flex w-full">
@@ -32,10 +34,11 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                         value={config["api.key"]}
                         readOnly />
                     <Button variant="primary" onClick={onRefreshApiKey}>
+                        <Icon name="refresh" className="!text-[18px]" />
                         Refresh
                     </Button>
                 </div>
-                <p className="text-xs leading-relaxed text-slate-400" id="api-key-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="api-key-help">
                     Use this API key when configuring your download client in Radarr or Sonarr.
                 </p>
             </div>
@@ -49,7 +52,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     value={config["api.categories"]}
                     placeholder="tv, movies, audio, software"
                     onChange={value => setNewConfig({ ...config, "api.categories": value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="categories-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="categories-help">
                     The complete list of categories for organizing imported nzbs. Only letters, numbers, and dashes are allowed.
                 </p>
             </div>
@@ -64,7 +67,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     value={config["api.manual-category"]}
                     placeholder="uncategorized"
                     onChange={e => setNewConfig({ ...config, "api.manual-category": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="manual-category-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="manual-category-help">
                     The category to use for manual uploads through the Queue page on the UI.
                 </p>
             </div>
@@ -79,7 +82,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     <option value="symlinks">Symlinks — Plex</option>
                     <option value="strm">STRM Files — Emby/Jellyfin</option>
                 </Select>
-                <p className="text-xs leading-relaxed text-slate-400" id="import-strategy-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="import-strategy-help">
                     If you need to be able to stream from Plex, you will need to configure rclone and should select the `Symlinks` option here. If you only need to stream through Emby or Jellyfin, then you can skip rclone altogether and select the `STRM Files` option.
                 </p>
             </div>
@@ -95,7 +98,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                         placeholder="/mnt/nzbdav"
                         value={config["rclone.mount-dir"]}
                         onChange={e => setNewConfig({ ...config, "rclone.mount-dir": e.target.value })} />
-                    <p className="text-xs leading-relaxed text-slate-400" id="mount-dir-help">
+                    <p className="text-[11px] leading-relaxed text-base-content/45" id="mount-dir-help">
                         The location at which you've mounted (or will mount) the webdav root, through Rclone. This is used to tell Radarr / Sonarr where to look for completed "downloads."
                     </p>
                 </div>
@@ -111,7 +114,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                         placeholder="/data/completed-downloads"
                         value={config["api.completed-downloads-dir"]}
                         onChange={e => setNewConfig({ ...config, "api.completed-downloads-dir": e.target.value })} />
-                    <p className="text-xs leading-relaxed text-slate-400" id="completed-downloads-dir-help">
+                    <p className="text-[11px] leading-relaxed text-base-content/45" id="completed-downloads-dir-help">
                         This is used to tell Radarr / Sonarr where to look for completed "downloads." Make sure this path is also visible to your Radarr / Sonarr containers. The "downloads" placed in this folder will all be *.strm files that point to nzbdav for streaming.
                     </p>
                 </div>
@@ -125,7 +128,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                         placeholder="http://localhost:3000"
                         value={config["general.base-url"]}
                         onChange={e => setNewConfig({ ...config, "general.base-url": e.target.value })} />
-                    <p className="text-xs leading-relaxed text-slate-400" id="base-url-help">
+                    <p className="text-[11px] leading-relaxed text-base-content/45" id="base-url-help">
                         What is the base URL at which you access nzbdav? Make sure that Emby/Jellyfin can access this url. This is the URL they will connect to for streaming. All *.strm files will point to this URL.
                     </p>
                 </div>
@@ -140,7 +143,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     placeholder="*.nfo, *.par2, *.sfv, *sample.mkv"
                     value={config["api.download-file-blocklist"]}
                     onChange={value => setNewConfig({ ...config, "api.download-file-blocklist": value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="ignored-files-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="ignored-files-help">
                     Files that match these patterns will be ignored and not mounted onto the webdav when processing an nzb. Wildcards (*) are supported.
                 </p>
             </div>
@@ -156,7 +159,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     <option value="increment">Download again with suffix (2)</option>
                     <option value="mark-failed">Mark the download as failed</option>
                 </Select>
-                <p className="text-xs leading-relaxed text-slate-400" id="duplicate-nzb-behavior-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="duplicate-nzb-behavior-help">
                     When an NZB is added, a new folder is created on the webdav. What should be done when the download folder for an NZB already exists?
                 </p>
             </div>
@@ -170,7 +173,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     value={config["api.user-agent"]}
                     placeholder={`nzbdav/${appVersion}`}
                     onChange={value => setNewConfig({ ...config, "api.user-agent": value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="user-agent-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="user-agent-help">
                     The user-agent used by the&nbsp;
                     <a href="https://sabnzbd.org/wiki/configuration/4.5/api#addurl">addurl</a> api
                     for fetching nzb files.
@@ -186,7 +189,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     onChange={e => setNewConfig({ ...config, "api.ensure-importable-video": "" + e.target.checked })}  />
                     <span>{`Fail downloads for nzbs without video content`}</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="ensure-importable-video-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="ensure-importable-video-help">
                     Whether to mark downloads as `failed` when no single video file is found inside the nzb. This will force Radarr / Sonarr to automatically look for a new nzb.
                 </p>
             </div>
@@ -201,7 +204,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     onChange={e => ensureArticleExistanceSetting.onMasterCheckboxChange(e.target.checked)}  />
                     <span>{`Perform article health check during downloads`}</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="ensure-article-existence-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="ensure-article-existence-help">
                     Whether to check for the existence of all articles within an NZB during queue processing. This process may be slow.
                 </p>
                 <MultiCheckboxInput
@@ -220,7 +223,7 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     onChange={e => setNewConfig({ ...config, "api.ignore-history-limit": "" + e.target.checked })}  />
                     <span>{`Always send full History to Radarr/Sonarr`}</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="ignore-history-limit-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="ignore-history-limit-help">
                     When enabled, this will ignore the History limit sent by radarr/sonarr and always reply with all History items.&nbsp;
                     <a href="https://github.com/Sonarr/Sonarr/issues/5452">See here</a>.
                 </p>
@@ -245,12 +248,12 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
                     disabled={config["api.nzb-backup-enabled"] !== "true"}
                     aria-invalid={!isValidNzbBackupLocation(config)}
                     onChange={e => setNewConfig({ ...config, "api.nzb-backup-location": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="nzb-backup-location-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="nzb-backup-location-help">
                     When enabled, a copy of each incoming NZB will be saved to this directory, organized by category.
                     The directory will be created if it doesn't already exist.
                 </p>
             </div>
-        </div>
+        </SettingsPage>
     );
 }
 

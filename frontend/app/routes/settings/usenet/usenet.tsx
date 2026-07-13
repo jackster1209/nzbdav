@@ -1,7 +1,7 @@
 import styles from "./usenet.module.css"
 import { type Dispatch, type SetStateAction, type ReactNode, type CSSProperties, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Button } from "~/components/ui/button";
-import { Icon } from "~/components/ui/icon";
+import { Icon, SettingsPage } from "~/components/ui";
 import { receiveMessage } from "~/utils/websocket-util";
 import { isMaskedSecret } from "~/utils/config-mask";
 import {
@@ -393,11 +393,12 @@ export function UsenetSettings({ config, setNewConfig }: UsenetSettingsProps) {
 
     // view
     return (
-        <div className={'space-y-6'}>
+        <SettingsPage>
             <div className={'space-y-4'}>
                 <div className={'flex items-center justify-between text-lg font-semibold text-white'}>
                     <div>Usenet Providers</div>
                     <Button variant="primary" size="small" onClick={handleAddProvider}>
+                        <Icon name="add" className="!text-[18px]" />
                         Add
                     </Button>
                 </div>
@@ -667,7 +668,7 @@ export function UsenetSettings({ config, setNewConfig }: UsenetSettingsProps) {
                 onApplyPipelining={handleApplyPipelining}
                 defaultPipeliningDepth={config["usenet.pipelining.depth"] || "8"}
             />
-        </div>
+        </SettingsPage>
     );
 }
 
@@ -1068,7 +1069,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
                             <input
                                 type="text"
                                 id="provider-host"
-                                className={'form-input w-full'}
+                                className="input w-full"
                                 placeholder="news.provider.com"
                                 value={host}
                                 onChange={(e) => {
@@ -1085,7 +1086,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
                             <input
                                 type="text"
                                 id="provider-port"
-                                className={`${'form-input w-full'} ${!isPositiveInteger(port) && port !== "" ? 'border-red-500 focus:border-red-500' : ""}`}
+                                className={`input w-full ${!isPositiveInteger(port) && port !== "" ? "input-error" : ""}`}
                                 placeholder="563"
                                 value={port}
                                 onChange={(e) => {
@@ -1102,7 +1103,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
                             <input
                                 type="text"
                                 id="provider-user"
-                                className={'form-input w-full'}
+                                className="input w-full"
                                 placeholder="username"
                                 value={user}
                                 onChange={(e) => {
@@ -1119,7 +1120,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
                             <input
                                 type="password"
                                 id="provider-pass"
-                                className={'form-input w-full'}
+                                className="input w-full"
                                 placeholder="password"
                                 value={pass}
                                 onChange={(e) => {
@@ -1136,7 +1137,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
                             <input
                                 type="text"
                                 id="provider-max-connections"
-                                className={`${'form-input w-full'} ${!isPositiveInteger(maxConnections) && maxConnections !== "" ? 'border-red-500 focus:border-red-500' : ""}`}
+                                className={`input w-full ${!isPositiveInteger(maxConnections) && maxConnections !== "" ? "input-error" : ""}`}
                                 placeholder="20"
                                 value={maxConnections}
                                 onChange={(e) => setMaxConnections(e.target.value)}
@@ -1167,7 +1168,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
                             </label>
                             <select
                                 id="provider-type"
-                                className={'form-select w-full'}
+                                className="select w-full"
                                 value={type}
                                 onChange={(e) => setType(parseInt(e.target.value, 10) as ProviderType)}
                             >
@@ -1286,7 +1287,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
                 <div className={'flex justify-end border-t border-slate-700 px-4 py-3'}>
                     <div className={'hidden'}></div>
                     <div className={'flex gap-2'}>
-                        <Button variant="secondary" onClick={onClose}>
+                        <Button variant="outline" onClick={onClose}>
                             Cancel
                         </Button>
                         {!canSave ? (
@@ -1377,7 +1378,7 @@ function BenchmarkPanel(props: BenchmarkPanelProps) {
                         {isBenchmarking ? "Testing…" : (pipeliningOnly ? "Test pipelining" : "Run speed test")}
                     </Button>
                     {isBenchmarking && (
-                        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+                        <Button variant="outline" onClick={onCancel}>Cancel</Button>
                     )}
                 </div>
             </div>

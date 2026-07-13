@@ -1,3 +1,4 @@
+import { SettingsPage } from "~/components/ui";
 import { Checkbox, Input, Select, Toggle } from "~/components/ui/form";
 import { type Dispatch, type SetStateAction } from "react";
 import { className } from "~/utils/styling";
@@ -10,7 +11,7 @@ type SabnzbdSettingsProps = {
 
 export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
     return (
-        <div className={'space-y-6'}>
+        <SettingsPage>
             <div className="space-y-2">
                 <label className="block text-sm font-medium text-slate-200" htmlFor="webdav-user-input">WebDAV User</label>
                 <Input
@@ -21,7 +22,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     placeholder="admin"
                     value={config["webdav.user"]}
                     onChange={e => setNewConfig({ ...config, "webdav.user": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="webdav-user-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="webdav-user-help">
                     Use this user to connect to the webdav. Only letters, numbers, dashes, and underscores allowed.
                 </p>
             </div>
@@ -36,7 +37,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     placeholder="Auto (all connections)"
                     value={config["usenet.max-queue-connections"]}
                     onChange={e => setNewConfig({ ...config, "usenet.max-queue-connections": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="max-queue-connections-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="max-queue-connections-help">
                     Connections available to queue imports. Leave blank to use all provider connections.
                 </p>
             </div>
@@ -50,7 +51,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     aria-describedby="webdav-pass-help"
                     value={config["webdav.pass"]}
                     onChange={e => setNewConfig({ ...config, "webdav.pass": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="webdav-pass-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="webdav-pass-help">
                     Use this password to connect to the webdav.
                 </p>
             </div>
@@ -64,7 +65,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                         onChange={e => setNewConfig({ ...config, "usenet.segment-cache.enabled": String(e.target.checked) })} />
                     <span>Enable Segment Cache</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="segment-cache-enabled-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="segment-cache-enabled-help">
                     Cache decoded segments on disk so repeat reads and seeks avoid provider traffic. Takes effect after restart.
                 </p>
                 {config["usenet.segment-cache.enabled"] === "true" && (
@@ -107,7 +108,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                         value={config["usenet.max-download-connections"]}
                         onChange={e => setNewConfig({ ...config, "usenet.max-download-connections": e.target.value })} />
                 )}
-                <p className="text-xs leading-relaxed text-slate-400" id="max-download-connections-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="max-download-connections-help">
                     The total connections used for <strong>webdav streaming</strong> (playback). Leave on
                     <strong> Auto</strong> to use the combined connection limit of your Pool providers — it
                     tracks changes as you add or remove providers — or turn Auto off to set a fixed number.
@@ -122,7 +123,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     label="Apply limit per stream"
                     checked={config["usenet.max-download-connections-per-stream"] === "true"}
                     onChange={e => setNewConfig({ ...config, "usenet.max-download-connections-per-stream": String(e.target.checked) })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="max-download-connections-per-stream-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="max-download-connections-per-stream-help">
                     By default the budget above is a <strong>shared total</strong> across all active playback
                     streams. Enable this to give each concurrent stream <strong>its own budget</strong> instead,
                     sized by the performance preset below. Your provider's connection limit still applies as a
@@ -142,7 +143,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                             <option value="high">High — 75% of the budget per stream</option>
                             <option value="max">Max — 100% (full budget per stream)</option>
                         </Select>
-                        <p className="text-xs leading-relaxed text-slate-400" id="max-download-connections-per-stream-preset-help">
+                        <p className="text-[11px] leading-relaxed text-base-content/45" id="max-download-connections-per-stream-preset-help">
                             How aggressively each stream may use the budget above. Higher fills and seeks faster
                             per stream; lower keeps more connections free for other simultaneous streams.
                         </p>
@@ -163,7 +164,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                         onChange={e => setNewConfig({ ...config, "usenet.streaming-priority": e.target.value })} />
                     <span className="flex items-center rounded-r border border-l-0 border-slate-600 bg-slate-800 px-2 text-sm text-slate-300">%</span>
                 </div>
-                <p className="text-xs leading-relaxed text-slate-400" id="streaming-priority-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="streaming-priority-help">
                     When streaming from the webdav while the queue is also active, how much bandwidth should be dedicated to streaming?
                 </p>
             </div>
@@ -178,7 +179,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     placeholder="40"
                     value={config["usenet.article-buffer-size"]}
                     onChange={e => setNewConfig({ ...config, "usenet.article-buffer-size": e.target.value })} />
-                <p className="text-xs leading-relaxed text-slate-400" id="article-buffer-size-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="article-buffer-size-help">
                     The number of articles to buffer ahead, per stream, when reading from the webdav.
                 </p>
             </div>
@@ -192,7 +193,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     onChange={e => setNewConfig({ ...config, "usenet.pipelined-body-requests": "" + e.target.checked })} />
                     <span>Pipelined article downloads</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="pipelined-body-requests-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="pipelined-body-requests-help">
                     Fetch articles in small NNTP batches for smoother WebDAV streaming. Queue imports use the
                     separate <strong>Enable NNTP pipelining</strong> toggle under Usenet settings. Disable this
                     to use the legacy one-at-a-time API while retaining the configured article buffer.
@@ -208,7 +209,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     onChange={e => setNewConfig({ ...config, "webdav.enforce-readonly": "" + e.target.checked })}  />
                     <span>{`Enforce Read-Only`}</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="readonly-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="readonly-help">
                     The WebDAV `/content` folder will be readonly when checked. WebDAV clients will not be able to delete files within this directory.
                 </p>
             </div>
@@ -222,7 +223,7 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     onChange={e => setNewConfig({ ...config, "webdav.show-hidden-files": "" + e.target.checked })}  />
                     <span>{`Show hidden files on Dav Explorer`}</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="show-hidden-files-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="show-hidden-files-help">
                     Hidden files or directories are those whose names are prefixed by a period.
                 </p>
             </div>
@@ -236,11 +237,11 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     onChange={e => setNewConfig({ ...config, "webdav.preview-par2-files": "" + e.target.checked })}  />
                     <span>{`Preview par2 files on Dav Explorer`}</span>
                 </label>
-                <p className="text-xs leading-relaxed text-slate-400" id="preview-par2-files-help">
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="preview-par2-files-help">
                     When enabled, par2 files will be rendered as text files on the Dav Explorer page, displaying all File-Descriptor entries.
                 </p>
             </div>
-        </div>
+        </SettingsPage>
     );
 }
 

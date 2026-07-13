@@ -1,291 +1,9 @@
-.page {
-    min-width: 100%;
-    min-height: 100%;
-    padding: 32px 32px;
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-
-@media not (min-width: 720px) {
-    .page {
-        padding: 18px 14px;
-    }
-}
-
-/* ---------- Outer "Watchdog" section (matches PageSection style) ---------- */
-
-.section {
-    width: 100%;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 22px;
-    margin-bottom: 24px;
-}
-
-.sectionHeader {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-bottom: 18px;
-}
-
-.title {
-    margin: 0 0 4px 0;
-    color: var(--text-primary);
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: -0.015em;
-}
-
-.subtitle {
-    color: var(--text-muted);
-    font-size: 12px;
-    line-height: 1.5;
-}
-
-.controls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-/* ---------- Toolbar buttons (Live / Refresh / Clear log) ---------- */
-
-.toolbarBtn {
-    all: unset;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 11px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1;
-    color: var(--text-secondary);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
-    user-select: none;
-    white-space: nowrap;
-}
-
-.toolbarBtn:hover:not(:disabled) {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-    border-color: var(--border-default);
-}
-
-.toolbarBtn:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-}
-
-.toolbarBtn:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-}
-
-.toolbarBtn:active:not(:disabled) {
-    transform: translateY(0.5px);
-}
-
-.toolbarIcon {
-    width: 12px;
-    height: 12px;
-    flex-shrink: 0;
-}
-
-.spinning {
-    animation: spin 800ms linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-/* Live toggle: green when on, neutral when off. The dot pulses while live. */
-.liveBtn {
-    color: var(--text-muted);
-}
-
-.liveBtnOn {
-    color: var(--success);
-    background: rgba(52, 211, 153, 0.06);
-    border-color: rgba(52, 211, 153, 0.25);
-}
-
-.liveBtnOn:hover {
-    background: rgba(52, 211, 153, 0.1);
-    border-color: rgba(52, 211, 153, 0.35);
-    color: var(--success);
-}
-
-.liveDot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--text-faint);
-    flex-shrink: 0;
-}
-
-.liveDotOn {
-    background: var(--success);
-    animation: livePulse 1.8s ease-in-out infinite;
-}
-
-@keyframes livePulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
-    50%      { box-shadow: 0 0 0 4px rgba(52, 211, 153, 0); }
-}
-
-/* Danger variant: red accent for destructive actions. */
-.toolbarBtnDanger {
-    color: var(--danger-muted);
-    border-color: rgba(239, 68, 68, 0.2);
-}
-
-.toolbarBtnDanger:hover:not(:disabled) {
-    color: var(--danger);
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.4);
-}
-
-/* ---------- Stats strip ---------- */
-
-.statsBar {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 14px;
-}
-
-.stat {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 10px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-}
-
-.statValue {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
-}
-
-.statLabel {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    font-weight: 500;
-}
-
-.statValueOk   { color: var(--success); }
-.statValueBad  { color: var(--danger); }
-.statValueWarn { color: var(--warning); }
-
-/* ---------- Filter chips ---------- */
-
-.filterBar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.filterChip {
-    all: unset;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
-}
-
-.filterChip:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-}
-
-.filterChipActive {
-    background: var(--bg-surface-2);
-    color: var(--text-primary);
-    border-color: var(--border-strong);
-}
-
-.filterChipCount {
-    font-size: 10px;
-    color: var(--text-muted);
-    background: var(--bg-base);
-    padding: 1px 7px;
-    border-radius: 6px;
-    border: 1px solid var(--border-subtle);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.4;
-}
-
-.filterChipActive .filterChipCount {
-    color: var(--text-secondary);
-    border-color: var(--border-default);
-}
-
-/* ---------- Error / empty ---------- */
-
-.errorBox {
-    margin-top: 14px;
-    color: var(--danger-muted);
-    font-size: 12px;
-    padding: 8px 12px;
-    background: rgba(239, 68, 68, 0.06);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: var(--radius-sm);
-}
-
-.emptyState {
-    padding: 48px 16px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 13px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-}
-
-/* ---------- Click list ---------- */
+/* Dense click list and attempt table layout — chrome migrated to daisyUI/Tailwind */
 
 .clickList {
     display: flex;
     flex-direction: column;
     gap: 14px;
-}
-
-.clickCard {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 16px 18px;
-    /* In a flex column, children default to min-width:auto and grow to fit
-       unbreakable content (e.g. long playback titles). Force shrink-to-fit
-       so a wide child can't push the card past the viewport. */
-    min-width: 0;
 }
 
 .clickHeader {
@@ -294,7 +12,6 @@
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
-    margin-bottom: 10px;
 }
 
 .clickHeaderMain {
@@ -322,109 +39,18 @@
     min-width: 0;
 }
 
-/* ---------- Status pill (header) ---------- */
-
-.statusPill {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    line-height: 1.4;
-    flex-shrink: 0;
-    border: 1px solid;
-}
-
-.pillOk {
-    color: var(--success);
-    background: rgba(52, 211, 153, 0.1);
-    border-color: rgba(52, 211, 153, 0.25);
-}
-
-.pillBad {
-    color: var(--danger-muted);
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.25);
-}
-
-.pillLive {
-    color: var(--text-secondary);
-    background: var(--bg-surface);
-    border-color: var(--border-default);
-}
-
-/* ---------- Meta badges ---------- */
-
-.metaBadge {
-    display: inline-block;
-    line-height: 1;
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    font-size: 10px;
-    color: var(--text-muted);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    letter-spacing: 0.04em;
-    text-transform: lowercase;
-    font-weight: 500;
-}
-
-.timestamp {
-    color: var(--text-muted);
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-}
-
-/* ---------- Winner line ---------- */
-
-.winnerLine {
-    color: var(--text-muted);
-    font-size: 11px;
-    padding: 7px 12px;
-    margin-bottom: 12px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.winnerIndexer {
-    color: var(--text-primary);
-    font-weight: 600;
-}
-
-.winnerDuration {
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
-}
-
-.winnerDot {
-    color: var(--text-faint);
-}
-
-/* ---------- Attempt table ---------- */
-
 .attemptTableWrap {
-    margin-left: -18px;
-    margin-right: -18px;
-    margin-bottom: -16px;
-    border-top: 1px solid var(--border-subtle);
-    overflow-x: auto;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    margin-bottom: -1rem;
+    border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .attemptTable {
-    width: 100%;
-    border-collapse: collapse;
     font-size: 12px;
 }
 
 .attemptTable thead th {
-    background: var(--bg-surface);
     color: var(--text-muted);
     font-weight: 500;
     font-size: 10px;
@@ -435,38 +61,17 @@
     white-space: nowrap;
 }
 
-.attemptTable thead th:first-child { padding-left: 18px; }
-.attemptTable thead th:last-child  { padding-right: 18px; text-align: right; }
+.attemptTable thead th:first-child { padding-left: 1rem; }
+.attemptTable thead th:last-child  { padding-right: 1rem; text-align: right; }
 
 .attemptTable tbody td {
     color: var(--text-secondary);
-    padding: 10px 10px;
-    border-bottom: 1px solid var(--border-subtle);
+    padding: 8px 10px;
     vertical-align: middle;
 }
 
-.attemptTable tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.attemptTable tbody td:first-child { padding-left: 18px; }
-.attemptTable tbody td:last-child  { padding-right: 18px; text-align: right; }
-
-.attemptTable tbody tr {
-    transition: background-color 120ms ease;
-}
-
-.attemptTable tbody tr:hover td {
-    background-color: var(--bg-hover);
-}
-
-.winnerRow td {
-    background-color: rgba(52, 211, 153, 0.04);
-}
-
-.winnerRow:hover td {
-    background-color: rgba(52, 211, 153, 0.07) !important;
-}
+.attemptTable tbody td:first-child { padding-left: 1rem; }
+.attemptTable tbody td:last-child  { padding-right: 1rem; text-align: right; }
 
 .colRank      { width: 32px; color: var(--text-muted); font-variant-numeric: tabular-nums; font-weight: 600; }
 .colCandidate { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
@@ -477,46 +82,6 @@
 .colReason    { color: var(--text-muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .colDuration  { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted); width: 64px; }
 
-/* ---------- Outcome badge (in table) ---------- */
-
-.outcomeBadge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    line-height: 1.4;
-    border: 1px solid;
-}
-
-.outcomeOk {
-    color: var(--success);
-    background: rgba(52, 211, 153, 0.1);
-    border-color: rgba(52, 211, 153, 0.25);
-}
-
-.outcomeBad {
-    color: var(--danger-muted);
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.25);
-}
-
-.outcomeWarn {
-    color: var(--warning);
-    background: rgba(251, 191, 36, 0.1);
-    border-color: rgba(251, 191, 36, 0.25);
-}
-
-.outcomeWin {
-    color: var(--success);
-    background: rgba(52, 211, 153, 0.18);
-    border-color: rgba(52, 211, 153, 0.4);
-}
-
-/* ---------- Mobile: swap table for stacked cards ---------- */
-
 .attemptCards {
     display: none;
     flex-direction: column;
@@ -524,31 +89,11 @@
     padding: 12px 14px 16px 14px;
 }
 
-.attemptCard {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 10px 12px;
-}
-
-.attemptCardWinner {
-    background: rgba(52, 211, 153, 0.06);
-    border-color: rgba(52, 211, 153, 0.2);
-}
-
 .attemptCardTop {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
     flex-wrap: wrap;
-}
-
-.attemptRank {
-    color: var(--text-muted);
-    font-size: 11px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
 }
 
 .attemptIndexer {
@@ -582,24 +127,7 @@
     color: var(--text-faint);
 }
 
-.attemptCardReason {
-    margin-top: 6px;
-    color: var(--text-muted);
-    font-size: 11px;
-    padding: 5px 8px;
-    background: var(--bg-base);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    word-break: break-word;
-}
-
-/* ---------- Mobile breakpoint ---------- */
-
 @media not (min-width: 900px) {
-    .statsBar {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .clickHeader {
         gap: 8px;
     }
@@ -612,20 +140,8 @@
         font-size: 12.5px;
         white-space: normal;
         overflow: visible;
-        /* Playback titles are often single long unbreakable tokens — without
-           this they'd extend past the card and push the page wider than the
-           viewport on iOS. */
         word-break: break-word;
         overflow-wrap: anywhere;
-    }
-
-    .controls {
-        width: 100%;
-    }
-
-    .toolbarBtn {
-        flex: 1 1 0;
-        justify-content: center;
     }
 
     .attemptTable {
@@ -634,9 +150,5 @@
 
     .attemptCards {
         display: flex;
-    }
-
-    .attemptTableWrap {
-        border-top: 1px solid var(--border-subtle);
     }
 }

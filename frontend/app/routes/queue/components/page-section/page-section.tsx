@@ -10,19 +10,21 @@ export type PageTableProps = {
 
 export function PageSection({ title, subTitle, badgeText, children }: PageTableProps) {
     return (
-        <section className="mb-12 w-full rounded-lg border border-slate-700/70 bg-gray-800 p-4 pb-0 shadow-md sm:p-6 sm:pb-0">
-            <div className="mb-6">
-                <div className="mb-2.5 flex flex-wrap items-center justify-between gap-4">
-                    {title}
-                    {badgeText &&
-                        <Badge className="px-3 py-1.5 text-xs font-medium text-slate-400">
-                            {badgeText}
-                        </Badge>
-                    }
+        <section className="card card-border bg-base-100 mb-12 w-full shadow-md">
+            <div className="card-body gap-4 pb-0 sm:pb-0">
+                <div>
+                    <div className="mb-2.5 flex flex-wrap items-center justify-between gap-4">
+                        {title}
+                        {badgeText &&
+                            <Badge className="badge-outline text-base-content/60 text-xs font-medium">
+                                {badgeText}
+                            </Badge>
+                        }
+                    </div>
+                    {subTitle}
                 </div>
-                {subTitle}
+                {children}
             </div>
-            {children}
         </section>
     );
 }

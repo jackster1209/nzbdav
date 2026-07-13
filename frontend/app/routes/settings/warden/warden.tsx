@@ -1,6 +1,6 @@
 import { type ChangeEvent, type DragEvent, type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { ConfirmModal } from "~/components/confirm-modal/confirm-modal";
-import { Alert, Button, Modal, NativeForm as Form, Spinner, Textarea } from "~/components/ui";
+import { Alert, Button, Icon, Modal, NativeForm as Form, SettingsIntro, Spinner, Textarea } from "~/components/ui";
 import styles from "./warden.module.css";
 
 type WardenSettingsProps = {
@@ -393,16 +393,13 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
 
     return (
         <div className={styles.container}>
-            <div className={styles.section}>
-                <div className={styles.sectionTitle}>Warden</div>
-                <div className={styles.sectionDescription}>
-                    A portable filter list of dead-release fingerprints. Your own list fills in
-                    automatically and stays independent. You can also add remote lists from a URL;
-                    they refresh on their own schedule, never touch your own list, and you decide how
-                    much each one is trusted. Fingerprints are universal: identical on any provider,
-                    indexer, or server, and free of credentials.
-                </div>
-            </div>
+            <SettingsIntro>
+                A portable filter list of dead-release fingerprints. Your own list fills in
+                automatically and stays independent. You can also add remote lists from a URL;
+                they refresh on their own schedule, never touch your own list, and you decide how
+                much each one is trusted. Fingerprints are universal: identical on any provider,
+                indexer, or server, and free of credentials.
+            </SettingsIntro>
 
             <Form.Group className={styles.section}>
                 <Form.Check
@@ -454,21 +451,27 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                         </div>
                     </div>
                     <div className={styles.headerActions}>
-                        <Button size="xsmall" onClick={() => setShowAddRemote(true)}>Add remote backup</Button>
-                        <Button variant="secondary" size="xsmall" disabled={busy !== null}
+                        <Button size="xsmall" onClick={() => setShowAddRemote(true)}>
+                            <Icon name="add_link" className="!text-[16px]" />
+                            Add remote backup
+                        </Button>
+                        <Button variant="primary" size="xsmall" disabled={busy !== null}
                             onClick={() => setShowBulk(true)}>
+                            <Icon name="playlist_add" className="!text-[16px]" />
                             Bundle
                         </Button>
-                        <Button variant="secondary" size="xsmall" disabled={busy !== null}
+                        <Button variant="primary" size="xsmall" disabled={busy !== null}
                             onClick={() => { setPendingFile(null); setShowImport(true); }}>
+                            <Icon name="upload" className="!text-[16px]" />
                             Import
                         </Button>
-                        <Button variant="secondary" size="xsmall" disabled={!snap || snap.totalRows === 0}
+                        <Button variant="primary" size="xsmall" disabled={!snap || snap.totalRows === 0}
                             onClick={() => {
                                 setExportScope("local");
                                 setExportSources(new Set(sources.map(s => s.id)));
                                 setShowExport(true);
                             }}>
+                            <Icon name="download" className="!text-[16px]" />
                             Export
                         </Button>
                     </div>
@@ -505,16 +508,19 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                                     </div>
                                     <div className={styles.actions}>
                                         {s.kind === "remote" &&
-                                            <Button variant="secondary" size="xsmall" disabled={rowBusy} onClick={() => refreshSource(s.id)}>
+                                            <Button variant="primary" size="xsmall" disabled={rowBusy} onClick={() => refreshSource(s.id)}>
+                                                <Icon name="refresh" className="!text-[16px]" />
                                                 Refresh
                                             </Button>}
-                                        <Button variant="secondary" size="xsmall" disabled={rowBusy || s.count === 0}
+                                        <Button variant="warning" size="xsmall" disabled={rowBusy || s.count === 0}
                                             onClick={() => setConfirm({ kind: "clear", source: s })}>
+                                            <Icon name="delete_sweep" className="!text-[16px]" />
                                             Clear
                                         </Button>
                                         {!isLocal &&
                                             <Button variant="danger" size="xsmall" disabled={rowBusy}
                                                 onClick={() => setConfirm({ kind: "remove", source: s })}>
+                                                <Icon name="delete" className="!text-[16px]" />
                                                 Remove
                                             </Button>}
                                     </div>
@@ -579,13 +585,19 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                         </div>
                     </div>
                     <div className={styles.headerActions}>
-                        <Button size="xsmall" onClick={openBackupModal}>Settings</Button>
-                        <Button variant="secondary" size="xsmall" disabled={!backup?.hasToken || busy !== null}
-                            onClick={backupNow}>
-                            {busy === "backup-now" ? <><Spinner size="sm" /> Backing up…</> : "Back up now"}
+                        <Button size="xsmall" onClick={openBackupModal}>
+                            <Icon name="settings" className="!text-[16px]" />
+                            Settings
                         </Button>
-                        <Button variant="secondary" size="xsmall" disabled={!backup?.hasToken || busy !== null}
+                        <Button variant="primary" size="xsmall" disabled={!backup?.hasToken || busy !== null}
+                            onClick={backupNow}>
+                            {busy === "backup-now"
+                                ? <><Spinner size="sm" /> Backing up…</>
+                                : <><Icon name="cloud_upload" className="!text-[16px]" /> Back up now</>}
+                        </Button>
+                        <Button variant="warning" size="xsmall" disabled={!backup?.hasToken || busy !== null}
                             onClick={() => setConfirmRestore(true)}>
+                            <Icon name="cloud_download" className="!text-[16px]" />
                             Restore
                         </Button>
                     </div>
@@ -617,7 +629,7 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                 title="Add a remote backup"
                 onClose={() => setShowAddRemote(false)}
                 footer={<>
-                    <Button variant="secondary" onClick={() => setShowAddRemote(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setShowAddRemote(false)}>Cancel</Button>
                     <Button disabled={busy === "add-remote" || !remoteUrl.trim()} onClick={addRemoteSource}>
                         {busy === "add-remote" ? <><Spinner size="sm" /> Adding…</> : "Add & fetch"}
                     </Button>
@@ -656,7 +668,7 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                 title="Bundle"
                 onClose={() => setShowBulk(false)}
                 footer={<>
-                    <Button variant="secondary" onClick={() => setShowBulk(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setShowBulk(false)}>Cancel</Button>
                     <Button disabled={busy === "bulk" || (!bulkText.trim() && !bulkFile)} onClick={submitBulk}>
                         {busy === "bulk" ? <><Spinner size="sm" /> Importing…</> : "Import"}
                     </Button>
@@ -670,7 +682,10 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                         <Form.Text muted>Or choose a file below. Lines starting with # are ignored. Ones you already have are skipped.</Form.Text>
                     </Form.Group>
                     <div className={styles.fileRow}>
-                        <Button variant="secondary" size="xsmall" onClick={() => bulkFileRef.current?.click()}>Choose file…</Button>
+                        <Button variant="primary" size="xsmall" onClick={() => bulkFileRef.current?.click()}>
+                            <Icon name="attach_file" className="!text-[16px]" />
+                            Choose file…
+                        </Button>
                         <span className={styles.fileName}>{bulkFile ? bulkFile.name : "No file selected"}</span>
                     </div>
                     <input ref={bulkFileRef} type="file" accept=".json,.txt,application/json,text/plain"
@@ -694,8 +709,9 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                     </div>
                     <hr />
                     <div className={styles.fileRow}>
-                        <Button variant="secondary" size="xsmall" disabled={!sources.some(s => s.kind === "remote")}
+                        <Button variant="primary" size="xsmall" disabled={!sources.some(s => s.kind === "remote")}
                             onClick={exportSourcesBundle}>
+                            <Icon name="download" className="!text-[16px]" />
                             Export bundle…
                         </Button>
                         <span className={styles.fileName}>Save a file you can share or re-import.</span>
@@ -707,7 +723,7 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                 title="Import a warden file"
                 onClose={() => setShowImport(false)}
                 footer={<>
-                    <Button variant="secondary" onClick={() => setShowImport(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setShowImport(false)}>Cancel</Button>
                     <Button disabled={busy === "import" || !pendingFile} onClick={submitImport}>
                         {busy === "import" ? <><Spinner size="sm" /> Importing…</> : "Import"}
                     </Button>
@@ -742,7 +758,10 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                         </div>}
 
                     <div className={styles.fileRow}>
-                        <Button variant="secondary" size="xsmall" onClick={() => fileRef.current?.click()}>Choose file…</Button>
+                        <Button variant="primary" size="xsmall" onClick={() => fileRef.current?.click()}>
+                            <Icon name="attach_file" className="!text-[16px]" />
+                            Choose file…
+                        </Button>
                         <span className={styles.fileName}>{pendingFile ? pendingFile.name : "No file selected"}</span>
                     </div>
             </Modal>
@@ -752,7 +771,7 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                 title="Export"
                 onClose={() => setShowExport(false)}
                 footer={<>
-                    <Button variant="secondary" onClick={() => setShowExport(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setShowExport(false)}>Cancel</Button>
                     <Button disabled={exportScope === "merged" && exportSources.size === 0} onClick={doExport}>
                         Download
                     </Button>
@@ -785,7 +804,7 @@ export function WardenSettings({ config, setNewConfig }: WardenSettingsProps) {
                 title="Backup to GitHub"
                 onClose={() => setShowBackup(false)}
                 footer={<>
-                    <Button variant="secondary" onClick={() => setShowBackup(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setShowBackup(false)}>Cancel</Button>
                     <Button disabled={busy === "backup-save" || !bRepo.trim()} onClick={saveBackup}>
                         {busy === "backup-save" ? <><Spinner size="sm" /> Saving…</> : "Save"}
                     </Button>

@@ -1,4 +1,3 @@
-import styles from "./page-table.module.css";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { TriCheckbox, type TriCheckboxState } from "../tri-checkbox/tri-checkbox";
@@ -7,8 +6,8 @@ import { StatusBadge } from "../status-badge/status-badge";
 import { formatFileSize } from "~/utils/file-size";
 import type { ProviderUsage } from "~/clients/backend-client.server";
 
-const desktopHeaderClass = "hidden w-[120px] bg-slate-900 px-1 py-4 text-center text-xs font-semibold tracking-wide text-slate-200 min-[900px]:table-cell";
-const desktopCellClass = "hidden max-w-[200px] whitespace-nowrap border-b border-white/5 px-1 py-3 text-center align-middle text-slate-300 min-[900px]:table-cell";
+const desktopHeaderClass = "hidden min-[900px]:table-cell w-[120px] text-center text-xs font-semibold uppercase tracking-wide";
+const desktopCellClass = "hidden min-[900px]:table-cell max-w-[200px] whitespace-nowrap px-1 py-3 text-center align-middle";
 
 export type PageTableProps = {
     children?: ReactNode,
@@ -21,10 +20,10 @@ export type PageTableProps = {
 export function PageTable({ children, headerCheckboxState, onHeaderCheckboxChange, footer, showCompleted }: PageTableProps) {
     return (
         <div className="-mx-4 overflow-x-auto sm:-mx-6">
-            <table className="mb-0 w-full table-fixed text-slate-300 [&_tbody_tr:last-child_td]:border-b-0">
+            <table className="table table-zebra table-sm mb-0 w-full min-w-0 text-base-content min-[900px]:min-w-[880px]">
                 <thead>
-                    <tr>
-                        <th className="w-auto bg-slate-900 px-0 py-4 text-left text-xs font-semibold tracking-wide text-slate-200 min-[900px]:w-1/2">
+                    <tr className="border-base-content/10 [&_th]:bg-base-200 [&_th]:text-base-content/70">
+                        <th className="min-[900px]:w-1/2 w-auto py-4 pl-0 text-left text-xs font-semibold uppercase tracking-wide">
                             <TriCheckbox state={headerCheckboxState} onChange={onHeaderCheckboxChange}>
                                 Name
                             </TriCheckbox>
@@ -35,7 +34,7 @@ export function PageTable({ children, headerCheckboxState, onHeaderCheckboxChang
                         <th className={desktopHeaderClass}>Status</th>
                         <th className={desktopHeaderClass}>Size</th>
                         {showCompleted && <th className={desktopHeaderClass}>Completed</th>}
-                        <th className="w-[100px] bg-slate-900 px-1 py-4 text-center text-xs font-semibold text-slate-200">Actions</th>
+                        <th className="w-[100px] py-4 text-center text-xs font-semibold">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -70,52 +69,52 @@ export type PageRowProps = {
 }
 export function PageRow(props: PageRowProps) {
     const nameContent = props.nameHref
-        ? <Link to={props.nameHref} className="text-slate-200 hover:text-white hover:underline" onClick={e => e.stopPropagation()}>{props.name}</Link>
+        ? <Link to={props.nameHref} className="text-base-content hover:text-primary hover:underline" onClick={e => e.stopPropagation()}>{props.name}</Link>
         : props.name;
     const completedLabel = formatCompleted(props.completed);
 
     return (
-        <tr className={`${props.isRemoving ? "opacity-20" : ""} ${props.isUploading ? "bg-cyan-400/5 [&+tr]:border-t-[3px] [&+tr]:border-slate-900" : ""}`}>
-            <td className="max-w-[200px] whitespace-nowrap border-b border-white/5 py-3 pl-0 pr-1 text-left align-middle text-slate-300">
+        <tr className={`${props.isRemoving ? "opacity-20" : ""} ${props.isUploading ? "bg-primary/5 [&+tr]:border-t-[3px] [&+tr]:border-base-300" : ""}`}>
+            <td className="max-w-[200px] whitespace-nowrap py-3 pl-0 pr-1 text-left align-middle min-[900px]:max-w-[200px] max-[899px]:max-w-none max-[899px]:whitespace-normal">
                 <TriCheckbox state={props.isSelected} onChange={props.onRowSelectionChanged}>
                     <Truncate>{nameContent}</Truncate>
                     <div className="block min-[900px]:hidden">
-                        <div className="mb-1 mt-1 flex gap-2.5">
+                        <div className="mb-1 mt-1 flex flex-wrap gap-2.5">
                             <StatusBadge status={props.status} percentage={props.percentage} error={props.error} />
                             <CategoryBadge category={props.category} />
                             {props.indexer && <IndexerBadge indexer={props.indexer} />}
                             {props.providers && props.providers.length > 0 && <ProvidersBadge providers={props.providers} />}
                         </div>
-                        <div className="font-mono text-xs text-slate-400">{formatFileSize(props.fileSizeBytes)}</div>
+                        <div className="font-mono text-xs text-base-content/60">{formatFileSize(props.fileSizeBytes)}</div>
                         {props.showCompleted && completedLabel &&
-                            <div className="font-mono text-xs text-slate-400" title={completedLabel.full}>{completedLabel.short}</div>
+                            <div className="font-mono text-xs text-base-content/60" title={completedLabel.full}>{completedLabel.short}</div>
                         }
                     </div>
                 </TriCheckbox>
             </td>
-            <td className="hidden max-w-[200px] whitespace-nowrap border-b border-white/5 px-1 py-3 text-center align-middle text-slate-300 min-[900px]:table-cell">
+            <td className={desktopCellClass}>
                 <CategoryBadge category={props.category} />
             </td>
             <td className={desktopCellClass}>
-                {props.indexer ? <IndexerBadge indexer={props.indexer} /> : <span className={styles.emptyCell}>—</span>}
+                {props.indexer ? <IndexerBadge indexer={props.indexer} /> : <span className="text-base-content/30 text-xs">—</span>}
             </td>
             <td className={desktopCellClass}>
                 {props.providers && props.providers.length > 0
                     ? <ProvidersBadge providers={props.providers} />
-                    : <span className={styles.emptyCell}>—</span>}
+                    : <span className="text-base-content/30 text-xs">—</span>}
             </td>
             <td className={desktopCellClass}>
                 <StatusBadge status={props.status} percentage={props.percentage} error={props.error} />
             </td>
-            <td className="hidden max-w-[200px] whitespace-nowrap border-b border-white/5 px-1 py-3 text-center align-middle font-mono text-xs text-slate-300 min-[900px]:table-cell">
+            <td className="hidden min-[900px]:table-cell max-w-[200px] whitespace-nowrap px-1 py-3 text-center align-middle font-mono text-xs">
                 {formatFileSize(props.fileSizeBytes)}
             </td>
             {props.showCompleted &&
-                <td className="hidden max-w-[200px] whitespace-nowrap border-b border-white/5 px-1 py-3 text-center align-middle font-mono text-xs text-slate-300 min-[900px]:table-cell" title={completedLabel?.full}>
+                <td className="hidden min-[900px]:table-cell max-w-[200px] whitespace-nowrap px-1 py-3 text-center align-middle font-mono text-xs" title={completedLabel?.full}>
                     {completedLabel?.short ?? "—"}
                 </td>
             }
-            <td className="max-w-[200px] whitespace-nowrap border-b border-white/5 px-1 py-3 text-center align-middle text-slate-300">
+            <td className="max-w-[200px] whitespace-nowrap px-1 py-3 text-center align-middle max-[899px]:max-w-none max-[899px]:whitespace-normal">
                 <div className="flex flex-col items-end justify-center gap-2.5 pr-5 min-[410px]:flex-row min-[410px]:items-center min-[410px]:pr-0">
                     {props.actions}
                 </div>
@@ -147,11 +146,15 @@ function isSameDate(a: Date, b: Date): boolean {
 
 export function CategoryBadge({ category }: { category: string }) {
     const categoryLower = category?.toLowerCase();
-    return <div className={styles.categoryBadge}>{categoryLower}</div>
+    return <span className="badge badge-outline badge-sm w-[88px] lowercase">{categoryLower}</span>;
 }
 
 export function IndexerBadge({ indexer }: { indexer: string }) {
-    return <div className={styles.indexerBadge} title={`Indexer: ${indexer}`}>via {indexer}</div>
+    return (
+        <span className="badge badge-dash badge-ghost badge-sm max-w-[110px] truncate" title={`Indexer: ${indexer}`}>
+            via {indexer}
+        </span>
+    );
 }
 
 const MAX_INLINE_PROVIDERS = 3;
@@ -168,20 +171,20 @@ export function ProvidersBadge({ providers }: { providers: ProviderUsage[] }) {
             : `${labelOf(p)} (${p.host}): idle`)
         .join("\n");
     return (
-        <div className={styles.providersBadge} title={tooltip}>
+        <span className="badge badge-dash badge-ghost badge-sm inline-flex max-w-[240px] cursor-help items-baseline gap-1 truncate max-[899px]:max-w-full" title={tooltip}>
             {visible.map((p, i) => (
-                <span key={p.host} className={styles.providersEntry}>
-                    {i > 0 && <span className={styles.providersSep}>·</span>}
-                    <span className={styles.providersHost}>{labelOf(p)}</span>
+                <span key={p.host} className="inline-flex items-baseline">
+                    {i > 0 && <span className="text-base-content/20 mx-0.5">·</span>}
+                    <span>{labelOf(p)}</span>
                     {total > 0 && (
-                        <span className={styles.providersPct}>
+                        <span className="text-base-content/50 ml-0.5 tabular-nums">
                             {Math.round((p.segments / total) * 100)}%
                         </span>
                     )}
                 </span>
             ))}
-            {hidden > 0 && <span className={styles.providersMore}>+{hidden}</span>}
-        </div>
+            {hidden > 0 && <span className="text-base-content/50 ml-1">+{hidden}</span>}
+        </span>
     );
 }
 

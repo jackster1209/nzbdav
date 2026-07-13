@@ -1,5 +1,5 @@
 import { type Dispatch, type SetStateAction } from "react";
-import { Field, Input, Label, Select } from "~/components/ui";
+import { Field, Input, Label, Select, SettingsIntro } from "~/components/ui";
 import styles from "./preflight.module.css";
 
 type PreflightSettingsProps = {
@@ -14,15 +14,12 @@ export function PreflightSettings({ config, setNewConfig }: PreflightSettingsPro
 
     return (
         <div className={styles.container}>
-            <div className={styles.section}>
-                <div className={styles.sectionTitle}>Preflight</div>
-                <div className={styles.sectionDescription}>
-                    When a client asks for the list of available articles, nzbdav can quietly
-                    do upfront work on the top-ranked ones so the next request reuses that warm
-                    state instead of redoing everything from scratch. The harder the mode, the
-                    more it does.
-                </div>
-            </div>
+            <SettingsIntro>
+                When a client asks for the list of available articles, nzbdav can quietly
+                do upfront work on the top-ranked ones so the next request reuses that warm
+                state instead of redoing everything from scratch. The harder the mode, the
+                more it does.
+            </SettingsIntro>
 
             <Field className={styles.section}>
                 <Label htmlFor="preflight-mode">Mode</Label>

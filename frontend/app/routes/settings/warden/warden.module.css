@@ -1,42 +1,41 @@
 .container {
     display: flex;
     flex-direction: column;
-    gap: 18px;
-    padding: 16px 4px;
-    max-width: 760px;
+    gap: 1.5rem;
+    width: 100%;
 }
 
 .section {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    max-width: 640px;
+    gap: 0.5rem;
 }
 
 .sourcesSection {
-    max-width: 760px;
+    width: 100%;
 }
 
 .sectionTitle {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--color-base-content, var(--text-primary, inherit));
 }
 
 .sectionDescription {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
+    color: color-mix(in oklab, var(--color-base-content, currentColor) 55%, transparent);
+    font-size: 0.8125rem;
     line-height: 1.45;
 }
 
 .input {
-    max-width: 420px;
+    width: 100%;
+    max-width: 28rem;
 }
 
 .hint {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    line-height: 1.4;
+    color: color-mix(in oklab, var(--color-base-content, currentColor) 45%, transparent);
+    font-size: 11px;
+    line-height: 1.45;
     margin: 0;
 }
 

@@ -1,4 +1,3 @@
-import styles from "./live-tiles.module.css";
 import { formatBytes } from "../../utils/format";
 
 export type LiveTilesProps = {
@@ -14,7 +13,7 @@ export function LiveTiles({ tiles }: LiveTilesProps) {
     const bytesPerSec = tiles.bytesServedPerMinute / 60;
     const articlesPerSec = tiles.articlesPerMinute / 60;
     return (
-        <div className={styles.grid}>
+        <div className="stats stats-vertical w-full shadow lg:stats-horizontal">
             <Tile
                 label="Active reads"
                 value={tiles.activeReads.toString()}
@@ -46,11 +45,16 @@ function Tile({ label, value, sub, accent }: {
     sub?: string,
     accent?: "live" | "danger"
 }) {
+    const valueClass = accent === "live"
+        ? "text-success"
+        : accent === "danger"
+            ? "text-error"
+            : "";
     return (
-        <div className={`${styles.tile} ${accent === "live" ? styles.tileLive : ""} ${accent === "danger" ? styles.tileDanger : ""}`}>
-            <div className={styles.label}>{label}</div>
-            <div className={styles.value}>{value}</div>
-            {sub && <div className={styles.sub}>{sub}</div>}
+        <div className="stat">
+            <div className="stat-title">{label}</div>
+            <div className={`stat-value font-mono text-2xl md:text-3xl ${valueClass}`}>{value}</div>
+            {sub && <div className="stat-desc">{sub}</div>}
         </div>
     );
 }

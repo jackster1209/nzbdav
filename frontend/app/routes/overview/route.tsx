@@ -308,7 +308,7 @@ export default function Overview(_props: Route.ComponentProps) {
                     {editMode && (
                         <button
                             type="button"
-                            className={styles.resetBtn}
+                            className="btn btn-ghost btn-sm"
                             onClick={reset}
                             title="Restore default order">
                             Reset
@@ -316,19 +316,20 @@ export default function Overview(_props: Route.ComponentProps) {
                     )}
                     <button
                         type="button"
-                        className={editMode ? styles.editBtnActive : styles.editBtn}
+                        className={`btn btn-sm ${editMode ? "btn-primary" : "btn-ghost"}`}
                         onClick={() => setEditMode(v => !v)}
                         aria-pressed={editMode}
                         title={editMode ? "Done editing layout" : "Reorder widgets"}>
                         {editMode ? "Done" : "Edit layout"}
                     </button>
-                    <div className={styles.windowToggle} role="tablist">
+                    <div className="join">
                         {WINDOWS.map(w => (
                             <button
                                 key={w.value}
+                                type="button"
                                 role="tab"
                                 aria-selected={window === w.value}
-                                className={window === w.value ? styles.windowActive : styles.windowOption}
+                                className={`btn btn-sm join-item ${window === w.value ? "btn-primary" : "btn-ghost"}`}
                                 onClick={() => setWindow(w.value)}>{w.label}</button>
                         ))}
                     </div>
@@ -338,10 +339,8 @@ export default function Overview(_props: Route.ComponentProps) {
             {(liveStatsStale || metricsError || droppedMetrics > 0) && (
                 <div
                     role="alert"
-                    className={`rounded border px-3 py-2 text-xs ${
-                        metricsError
-                            ? "border-red-500/50 bg-red-500/10 text-red-200"
-                            : "border-amber-600/50 bg-amber-500/10 text-amber-200"
+                    className={`alert text-xs ${
+                        metricsError ? "alert-error" : "alert-warning"
                     }`}>
                     {metricsError
                         ? `Metrics storage is unavailable: ${metricsError}`

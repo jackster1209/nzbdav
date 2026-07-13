@@ -130,8 +130,8 @@ export function MigrationBoundary({ fallback }: { fallback: FallbackProps }) {
             : "Waiting for the backend to respond..."
         }
       >
-        <div className="flex items-center gap-3 text-sm text-slate-300">
-          <Spinner />
+        <div className="flex items-center gap-3 text-sm text-base-content/70">
+          <span className="loading loading-spinner loading-sm text-primary" />
           <span>This can take a moment during startup.</span>
         </div>
       </MigrationShell>
@@ -144,7 +144,7 @@ export function MigrationBoundary({ fallback }: { fallback: FallbackProps }) {
       {fallback.showReload ? (
         <button
           type="button"
-          className="button-small flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600"
+          className="btn btn-primary btn-sm"
           onClick={() => window.location.reload()}
         >
           Reload
@@ -185,68 +185,68 @@ function MigrationProgressView({ status }: { status: MigrationStatus }) {
   return (
     <MigrationShell title={title} subtitle={subtitle} wide>
       {failed && status.error ? (
-        <div className="rounded border border-rose-600/50 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+        <div role="alert" className="alert alert-error text-xs">
           {status.error}
         </div>
       ) : null}
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="flex items-center justify-between text-xs text-base-content/60">
           <span>
             Step {Math.min(completed + (done || failed ? 0 : 1), total)} of {total}
           </span>
           <span className="font-mono">Elapsed {overallElapsed}</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700/60">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${failed ? "bg-rose-500" : done ? "bg-emerald-500" : "bg-blue-500"}`}
-            style={{ width: `${done ? 100 : percent}%` }}
-          />
-        </div>
+        <progress
+          className={`progress h-2 w-full ${failed ? "progress-error" : done ? "progress-success" : "progress-primary"}`}
+          value={done ? 100 : percent}
+          max={100}
+        />
         {runningStep && !done && !failed ? (
-          <div className="flex items-center gap-2 text-sm text-slate-300">
-            <Spinner />
+          <div className="flex items-center gap-2 text-sm text-base-content/80">
+            <span className="loading loading-spinner loading-sm text-primary" />
             <span>
               {runningStep.name}
-              {currentElapsed ? <span className="ml-1 font-mono text-slate-400">({currentElapsed})</span> : null}
+              {currentElapsed ? <span className="ml-1 font-mono text-base-content/60">({currentElapsed})</span> : null}
             </span>
           </div>
         ) : null}
         {runningStep?.slow && !done && !failed ? (
-          <div className="rounded border border-amber-600/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <div role="alert" className="alert alert-warning text-xs">
             This step rewrites large tables and may take a long time on big databases. This is expected.
           </div>
         ) : null}
       </div>
 
-      <ol className="space-y-1.5">
+      <ul className="steps steps-vertical w-full">
         {status.steps.map((step) => (
-          <li key={step.id} className="flex items-center gap-2.5 text-sm">
-            <StepIcon status={step.status} />
-            <span
-              className={
-                step.status === "completed"
-                  ? "text-slate-400 line-through decoration-slate-600"
-                  : step.status === "running"
-                    ? "text-white"
-                    : step.status === "failed"
-                      ? "text-rose-300"
-                      : "text-slate-400"
-              }
-            >
+          <li
+            key={step.id}
+            className={`step ${
+              step.status === "completed"
+                ? "step-success"
+                : step.status === "running"
+                  ? "step-primary"
+                  : step.status === "failed"
+                    ? "step-error"
+                    : ""
+            }`}
+            aria-current={step.status === "running" ? "step" : undefined}
+          >
+            <span className="text-left text-sm">
               {step.name}
+              {step.slow && step.status === "pending" ? (
+                <span className="ml-2 badge badge-warning badge-xs">may be slow</span>
+              ) : null}
             </span>
-            {step.slow && step.status === "pending" ? (
-              <span className="text-[10px] uppercase tracking-wide text-amber-400/80">may be slow</span>
-            ) : null}
           </li>
         ))}
-      </ol>
+      </ul>
 
       {failed ? (
         <button
           type="button"
-          className="button-small flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600"
+          className="btn btn-primary btn-sm"
           onClick={() => window.location.reload()}
         >
           Reload
@@ -268,41 +268,23 @@ function MigrationShell({
   wide?: boolean;
 }) {
   return (
-    <main className="flex min-h-dvh w-full items-center justify-center bg-gray-900 px-4 py-8 text-white">
-      <div
-        className={`w-full ${wide ? "max-w-xl" : "max-w-lg"} space-y-4 rounded-xl border border-slate-700/70 bg-gray-800 p-6 shadow-xl shadow-black/20 sm:p-8`}
-      >
-        <div className="flex items-center gap-3">
-          <img className="h-9 w-9" src="/logo.svg" alt="NzbDav" />
-          <div className="space-y-1">
-            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-            {subtitle ? <p className="text-sm leading-relaxed text-slate-300">{subtitle}</p> : null}
+    <main className="hero min-h-dvh bg-base-300">
+      <div className="hero-content w-full px-4 py-8">
+        <div
+          className={`card w-full ${wide ? "max-w-xl" : "max-w-lg"} border border-base-content/10 bg-base-100 shadow-xl`}
+        >
+          <div className="card-body gap-4">
+            <div className="flex items-center gap-3">
+              <img className="h-9 w-9" src="/logo.svg" alt="NzbDav" />
+              <div className="space-y-1">
+                <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+                {subtitle ? <p className="text-sm leading-relaxed text-base-content/70">{subtitle}</p> : null}
+              </div>
+            </div>
+            {children}
           </div>
         </div>
-        {children}
       </div>
     </main>
-  );
-}
-
-function StepIcon({ status }: { status: MigrationStepStatus }) {
-  if (status === "completed") {
-    return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400" aria-hidden />;
-  }
-  if (status === "running") {
-    return <Spinner />;
-  }
-  if (status === "failed") {
-    return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500" aria-hidden />;
-  }
-  return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-slate-600" aria-hidden />;
-}
-
-function Spinner() {
-  return (
-    <span
-      className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-slate-500 border-t-blue-400"
-      aria-hidden
-    />
   );
 }

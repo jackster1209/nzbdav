@@ -11,6 +11,8 @@ import {
 import styles from "./route.module.css";
 import { backendClient, type LogEntry, type LogLevel } from "~/clients/backend-client.server";
 import { useLogsWebsocket, type ConnectionStatus } from "./controllers/websocket-controller";
+import { Alert, Badge, Icon } from "~/components/ui";
+import { Input } from "~/components/ui/form";
 
 const ALL_LEVELS: LogLevel[] = ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
 const DEFAULT_LEVELS: LogLevel[] = ["Information", "Warning", "Error", "Fatal"];
@@ -281,113 +283,118 @@ export default function Logs({ loaderData }: Route.ComponentProps) {
     );
 
     return (
-        <div className={styles.page}>
-            <div className={styles.section}>
-                <div className={styles.sectionHeader}>
-                    <div>
-                        <div className={styles.titleRow}>
-                            <span
-                                className={`${styles.connectionDot} ${connectionDotClass(connection)}`}
-                                title={`WebSocket ${connection}`}
+        <div className="flex min-h-full min-w-full flex-col gap-4 px-4 py-4 text-sm text-base-content/70 md:px-8">
+            <div className="card border border-base-content/10 bg-base-100 shadow-sm">
+                <div className="card-body gap-4 p-4 md:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2.5">
+                                <span
+                                    className={`status status-sm ${connectionStatusClass(connection)}`}
+                                    title={`WebSocket ${connection}`}
+                                />
+                                <h2 className="text-base font-semibold tracking-tight text-base-content">Logs</h2>
+                            </div>
+                            <p className="mt-1 text-xs text-base-content/50">
+                                Live application logs from the in-memory ring buffer.
+                                Last {capacity.toLocaleString()} entries are kept in RAM only, not persisted across restarts.
+                            </p>
+                        </div>
+                        <div className="join flex w-full flex-wrap sm:w-auto">
+                            <button
+                                type="button"
+                                className={`btn btn-sm join-item ${followTail ? "btn-primary" : "btn-ghost"}`}
+                                onClick={() => {
+                                    setFollowTail(v => {
+                                        if (!v) requestAnimationFrame(scrollToBottom);
+                                        return !v;
+                                    });
+                                }}
+                                title="Auto-follow the latest entry. Shortcut: f">
+                                {followTail ? "Following" : "Follow tail"}
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn btn-sm join-item ${paused ? "btn-warning" : "btn-ghost"}`}
+                                onClick={togglePause}
+                                title={paused ? "Stream paused. Click to resume." : "Pause live stream."}>
+                                {paused ? `Paused (${pendingCount})` : "Pause"}
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-ghost join-item"
+                                onClick={clearView}
+                                disabled={entries.length === 0}
+                                title="Clear the on-screen view. Server buffer is untouched.">
+                                Clear view
+                            </button>
+                            <a
+                                href={downloadHref}
+                                className="btn btn-sm btn-ghost join-item"
+                                title="Download current view as a .log file."
+                                download>
+                                <Icon name="download" className="!text-[16px]" />
+                                Download
+                            </a>
+                        </div>
+                    </div>
+
+                    <div className="join flex-wrap">
+                        {ALL_LEVELS.map(level => (
+                            <LevelChip
+                                key={level}
+                                level={level}
+                                active={enabledLevels.has(level)}
+                                count={counts[level] ?? 0}
+                                onClick={() => toggleLevel(level)}
                             />
-                            <h2 className={styles.title}>Logs</h2>
-                        </div>
-                        <div className={styles.subtitle}>
-                            Live application logs from the in-memory ring buffer.
-                            Last {capacity.toLocaleString()} entries are kept in RAM only, not persisted across restarts.
-                        </div>
+                        ))}
                     </div>
-                    <div className={styles.controls}>
-                        <button
-                            type="button"
-                            className={`${styles.toolbarBtn} ${followTail ? styles.toolbarBtnOn : ""}`}
-                            onClick={() => {
-                                setFollowTail(v => {
-                                    if (!v) requestAnimationFrame(scrollToBottom);
-                                    return !v;
-                                });
-                            }}
-                            title="Auto-follow the latest entry. Shortcut: f">
-                            {followTail ? "Following" : "Follow tail"}
-                        </button>
-                        <button
-                            type="button"
-                            className={`${styles.toolbarBtn} ${paused ? styles.toolbarBtnOn : ""}`}
-                            onClick={togglePause}
-                            title={paused ? "Stream paused. Click to resume." : "Pause live stream."}>
-                            {paused ? `Paused (${pendingCount})` : "Pause"}
-                        </button>
-                        <button
-                            type="button"
-                            className={styles.toolbarBtn}
-                            onClick={clearView}
-                            disabled={entries.length === 0}
-                            title="Clear the on-screen view. Server buffer is untouched.">
-                            Clear view
-                        </button>
-                        <a
-                            href={downloadHref}
-                            className={styles.toolbarBtn}
-                            title="Download current view as a .log file."
-                            download>
-                            Download
-                        </a>
-                    </div>
-                </div>
 
-                <div className={styles.levelBar}>
-                    {ALL_LEVELS.map(level => (
-                        <LevelChip
-                            key={level}
-                            level={level}
-                            active={enabledLevels.has(level)}
-                            count={counts[level] ?? 0}
-                            onClick={() => toggleLevel(level)}
-                        />
-                    ))}
-                </div>
-
-                <div className={styles.searchRow}>
-                    <div className={styles.searchInputWrap}>
-                        <svg className={styles.searchIcon} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" />
-                        </svg>
-                        <input
-                            ref={searchRef}
-                            className={styles.searchInput}
-                            type="search"
-                            value={searchInput}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchInput(e.target.value)}
-                            onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                                if (e.key === "Escape") { setSearchInput(""); e.currentTarget.blur(); }
-                            }}
-                            placeholder="Search messages, sources, stack traces…  ( / to focus )"
+                    <div className="flex flex-wrap items-center gap-2">
+                        <label className="input input-sm input-bordered flex min-w-0 flex-1 items-center gap-2 sm:min-w-[240px]">
+                            <Icon name="search" className="!text-[16px] shrink-0 text-base-content/40" />
+                            <input
+                                ref={searchRef}
+                                className="grow bg-transparent outline-none"
+                                type="search"
+                                value={searchInput}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchInput(e.target.value)}
+                                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                                    if (e.key === "Escape") { setSearchInput(""); e.currentTarget.blur(); }
+                                }}
+                                placeholder="Search messages, sources, stack traces…  ( / to focus )"
+                                spellCheck={false}
+                                autoComplete="off"
+                            />
+                        </label>
+                        <Input
+                            className="input-sm w-full sm:w-auto sm:max-w-[220px]"
+                            type="text"
+                            value={sourceInput}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => setSourceInput(e.target.value)}
+                            placeholder="Source filter (e.g. NzbWebDAV.Queue)"
                             spellCheck={false}
                             autoComplete="off"
                         />
+                        <span className="ml-auto font-mono text-[11px] whitespace-nowrap tabular-nums text-base-content/50 max-sm:ml-0">
+                            {entries.length.toLocaleString()} shown · {totalInBuffer.toLocaleString()}/{capacity.toLocaleString()} in buffer
+                        </span>
                     </div>
-                    <input
-                        className={styles.sourceInput}
-                        type="text"
-                        value={sourceInput}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => setSourceInput(e.target.value)}
-                        placeholder="Source filter (e.g. NzbWebDAV.Queue)"
-                        spellCheck={false}
-                        autoComplete="off"
-                    />
-                    <span className={styles.bufferMeter}>
-                        {entries.length.toLocaleString()} shown · {totalInBuffer.toLocaleString()}/{capacity.toLocaleString()} in buffer
-                    </span>
-                </div>
 
-                {errorText && <div className={styles.errorBox}>Couldn't load logs: {errorText}</div>}
+                    {errorText && (
+                        <Alert variant="danger" className="text-xs">
+                            Couldn&apos;t load logs: {errorText}
+                        </Alert>
+                    )}
+                </div>
             </div>
 
-            <div className={styles.listWrap}>
+            <div className={`card relative flex min-h-[360px] flex-1 flex-col overflow-hidden border border-base-content/10 bg-base-100 shadow-sm ${styles.listWrap}`}>
                 {entries.length === 0 ? (
-                    <div className={styles.emptyState}>
-                        <div className={styles.emptyHeadline}>No log entries to show.</div>
-                        <div>
+                    <div className="card-body items-center justify-center gap-1 py-16 text-center text-base-content/50">
+                        <div className="text-sm text-base-content/70">No log entries to show.</div>
+                        <div className="text-xs">
                             {totalInBuffer === 0
                                 ? "Nothing has been logged yet."
                                 : "Try widening your filters."}
@@ -408,11 +415,9 @@ export default function Logs({ loaderData }: Route.ComponentProps) {
                 {!followTail && entries.length > 0 && (
                     <button
                         type="button"
-                        className={styles.jumpBtn}
+                        className="btn btn-sm btn-primary absolute right-4 bottom-4 z-2 gap-2 shadow-lg"
                         onClick={() => { setFollowTail(true); requestAnimationFrame(scrollToBottom); }}>
-                        <svg className={styles.jumpBtnArrow} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                            <path d="M8 12.5a.5.5 0 0 1-.354-.146l-5-5a.5.5 0 1 1 .708-.708L8 11.293l4.646-4.647a.5.5 0 0 1 .708.708l-5 5A.5.5 0 0 1 8 12.5z" />
-                        </svg>
+                        <Icon name="keyboard_arrow_down" className="!text-[16px]" />
                         Jump to live
                     </button>
                 )}
@@ -430,7 +435,9 @@ function LogRow({ entry, expanded, onToggle }: {
     return (
         <div className={rowClass} onClick={onToggle} title={entry.exception ? "Click to toggle stack trace" : undefined}>
             <span className={styles.rowTime}>{formatTime(entry.ts)}</span>
-            <span className={styles.rowLevel}>{shortLevel(entry.level)}</span>
+            <Badge className={`badge-xs uppercase tracking-wide ${levelBadgeClass(entry.level)}`}>
+                {shortLevel(entry.level)}
+            </Badge>
             <span className={styles.rowBody}>
                 <span className={styles.rowMessage}>{entry.msg}</span>
                 {entry.source && <span className={styles.rowSource}>{entry.source}</span>}
@@ -451,22 +458,38 @@ function LevelChip({ level, active, count, onClick }: {
     count: number,
     onClick: () => void,
 }) {
-    const activeClass = !active ? "" :
-        level === "Information" ? styles.levelChipActiveInfo :
-        level === "Warning" ? styles.levelChipActiveWarning :
-        level === "Error" ? styles.levelChipActiveError :
-        level === "Fatal" ? styles.levelChipActiveFatal :
-        level === "Debug" ? styles.levelChipActiveDebug :
-        styles.levelChipActiveVerbose;
+    const activeClass = !active ? "btn-ghost opacity-55" : levelActiveBtnClass(level);
     return (
         <button
             type="button"
-            className={`${styles.levelChip} ${active ? styles.levelChipActive : ""} ${activeClass}`}
+            className={`btn btn-xs join-item gap-2 uppercase tracking-wide ${activeClass}`}
             onClick={onClick}>
             <span>{shortLevel(level)}</span>
-            <span className={styles.levelChipCount}>{count}</span>
+            <span className="badge badge-xs font-mono tabular-nums opacity-70">{count}</span>
         </button>
     );
+}
+
+function levelActiveBtnClass(level: LogLevel): string {
+    switch (level) {
+        case "Information": return "btn-info";
+        case "Warning": return "btn-warning";
+        case "Error": return "btn-error";
+        case "Fatal": return "btn-error";
+        case "Debug": return "btn-neutral";
+        case "Verbose": return "btn-ghost";
+    }
+}
+
+function levelBadgeClass(level: LogLevel): string {
+    switch (level) {
+        case "Information": return "badge-info";
+        case "Warning": return "badge-warning";
+        case "Error": return "badge-error";
+        case "Fatal": return "badge-error";
+        case "Debug": return "badge-ghost";
+        case "Verbose": return "badge-ghost";
+    }
 }
 
 function levelRowClass(level: LogLevel): string {
@@ -480,6 +503,15 @@ function levelRowClass(level: LogLevel): string {
     }
 }
 
+function connectionStatusClass(s: ConnectionStatus): string {
+    switch (s) {
+        case "live": return "status-success";
+        case "reconnecting":
+        case "connecting": return "status-warning animate-pulse";
+        case "disconnected": return "status-error";
+    }
+}
+
 function shortLevel(level: LogLevel): string {
     switch (level) {
         case "Verbose": return "trace";
@@ -488,15 +520,6 @@ function shortLevel(level: LogLevel): string {
         case "Warning": return "warn";
         case "Error": return "error";
         case "Fatal": return "fatal";
-    }
-}
-
-function connectionDotClass(s: ConnectionStatus): string {
-    switch (s) {
-        case "live": return styles.connLive;
-        case "reconnecting":
-        case "connecting": return styles.connReconnecting;
-        case "disconnected": return styles.connDisconnected;
     }
 }
 

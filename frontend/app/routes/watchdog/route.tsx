@@ -3,6 +3,8 @@ import type { Route } from "./+types/route";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./route.module.css";
 import { backendClient, type WatchdogEntry, type WatchdogOutcome } from "~/clients/backend-client.server";
+import { ConfirmModal } from "~/components/confirm-modal/confirm-modal";
+import { Alert, Badge, Icon } from "~/components/ui";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -21,12 +23,21 @@ export async function loader() {
 
 type FilterKey = "all" | "live" | "resolved" | "failed" | "excluded";
 
+const FILTER_OPTIONS: { key: FilterKey, label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "live", label: "Live" },
+    { key: "resolved", label: "Resolved" },
+    { key: "failed", label: "Failed" },
+    { key: "excluded", label: "Excluded" },
+];
+
 export default function Watchdog({ loaderData }: Route.ComponentProps) {
     const [attempts, setAttempts] = useState<WatchdogEntry[]>(loaderData.entries);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [filter, setFilter] = useState<FilterKey>("all");
     const [refreshing, setRefreshing] = useState(false);
     const [clearing, setClearing] = useState(false);
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const refresh = useCallback(async (silent: boolean = false) => {
@@ -45,8 +56,8 @@ export default function Watchdog({ loaderData }: Route.ComponentProps) {
         }
     }, []);
 
-    const clearAll = useCallback(async () => {
-        if (!window.confirm("Permanently delete all watchdog entries? This can't be undone.")) return;
+    const performClear = useCallback(async () => {
+        setShowClearConfirm(false);
         setClearing(true);
         try {
             const r = await fetch("/settings/watchdog-attempts", { method: "POST" });
@@ -81,89 +92,108 @@ export default function Watchdog({ loaderData }: Route.ComponentProps) {
     const filteredGroups = useMemo(() => groups.filter(g => matchesFilter(g, filter)), [groups, filter]);
     const stats = useMemo(() => computeStats(groups), [groups]);
 
+    const filterCounts: Record<FilterKey, number> = {
+        all: groups.length,
+        live: stats.inFlight,
+        resolved: stats.resolved,
+        failed: stats.failed,
+        excluded: stats.excluded,
+    };
+
     return (
-        <div className={styles.page}>
-            <div className={styles.section}>
-                <div className={styles.sectionHeader}>
-                    <div>
-                        <h2 className={styles.title}>Watchdog</h2>
-                        <div className={styles.subtitle}>
-                            Live playback resolution log. Persisted across restarts.
+        <div className="flex min-h-full min-w-full flex-col gap-6 px-4 py-4 text-sm text-base-content/70 md:px-8">
+            <div className="card border border-base-content/10 bg-base-100 shadow-sm">
+                <div className="card-body gap-4 p-4 md:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <h2 className="text-base font-semibold tracking-tight text-base-content">Watchdog</h2>
+                            <p className="mt-1 text-xs text-base-content/50">
+                                Live playback resolution log. Persisted across restarts.
+                            </p>
+                        </div>
+                        <div className="join flex w-full flex-wrap sm:w-auto">
+                            <button
+                                type="button"
+                                className={`btn btn-sm join-item gap-2 ${autoRefresh ? "btn-success" : "btn-ghost"}`}
+                                onClick={() => setAutoRefresh(v => !v)}
+                                title={autoRefresh ? "Auto-refresh on. Click to pause." : "Auto-refresh paused. Click to resume."}>
+                                <span className={`status status-xs ${autoRefresh ? "status-success animate-pulse" : "status-neutral"}`} />
+                                {autoRefresh ? (refreshing ? "Refreshing…" : "Live") : "Paused"}
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-primary join-item gap-2"
+                                onClick={() => refresh()}
+                                disabled={refreshing || clearing}
+                                title="Refresh now.">
+                                <Icon
+                                    name="refresh"
+                                    className={`!text-[16px] ${refreshing ? "animate-spin" : ""}`}
+                                />
+                                Refresh
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-error join-item gap-2"
+                                onClick={() => setShowClearConfirm(true)}
+                                disabled={groups.length === 0 || clearing}
+                                title="Permanently delete all watchdog entries.">
+                                <Icon name="delete" className="!text-[16px]" />
+                                {clearing ? "Clearing…" : "Clear log"}
+                            </button>
                         </div>
                     </div>
-                    <div className={styles.controls}>
-                        <button
-                            type="button"
-                            className={`${styles.toolbarBtn} ${styles.liveBtn} ${autoRefresh ? styles.liveBtnOn : ""}`}
-                            onClick={() => setAutoRefresh(v => !v)}
-                            title={autoRefresh ? "Auto-refresh on. Click to pause." : "Auto-refresh paused. Click to resume."}>
-                            <span className={`${styles.liveDot} ${autoRefresh ? styles.liveDotOn : ""}`} />
-                            {autoRefresh ? (refreshing ? "Refreshing…" : "Live") : "Paused"}
-                        </button>
-                        <button
-                            type="button"
-                            className={styles.toolbarBtn}
-                            onClick={() => refresh()}
-                            disabled={refreshing || clearing}
-                            title="Refresh now.">
-                            <svg
-                                className={`${styles.toolbarIcon} ${refreshing ? styles.spinning : ""}`}
-                                viewBox="0 0 16 16"
-                                fill="currentColor"
-                                aria-hidden="true">
-                                <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z" />
-                                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
-                            </svg>
-                            Refresh
-                        </button>
-                        <button
-                            type="button"
-                            className={`${styles.toolbarBtn} ${styles.toolbarBtnDanger}`}
-                            onClick={clearAll}
-                            disabled={groups.length === 0 || clearing}
-                            title="Permanently delete all watchdog entries.">
-                            <svg
-                                className={styles.toolbarIcon}
-                                viewBox="0 0 16 16"
-                                fill="currentColor"
-                                aria-hidden="true">
-                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z" />
-                                <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3v-1h11v1h-11z" />
-                            </svg>
-                            {clearing ? "Clearing…" : "Clear log"}
-                        </button>
+
+                    <div className="stats stats-vertical w-full border border-base-content/10 shadow sm:stats-horizontal">
+                        <Stat label="Clicks" value={stats.total} />
+                        <Stat label="Resolved" value={stats.resolved} tone="ok" />
+                        <Stat label="Failed" value={stats.failed} tone="bad" />
+                        <Stat label="In flight" value={stats.inFlight} tone="warn" />
                     </div>
-                </div>
 
-                <div className={styles.statsBar}>
-                    <Stat label="Clicks" value={stats.total} />
-                    <Stat label="Resolved" value={stats.resolved} tone="ok" />
-                    <Stat label="Failed" value={stats.failed} tone="bad" />
-                    <Stat label="In flight" value={stats.inFlight} tone="warn" />
-                </div>
+                    <div className="join flex-wrap">
+                        {FILTER_OPTIONS.map(option => (
+                            <FilterChip
+                                key={option.key}
+                                active={filter === option.key}
+                                onClick={() => setFilter(option.key)}
+                                count={filterCounts[option.key]}>
+                                {option.label}
+                            </FilterChip>
+                        ))}
+                    </div>
 
-                <div className={styles.filterBar}>
-                    <FilterChip active={filter === "all"} onClick={() => setFilter("all")} count={groups.length}>All</FilterChip>
-                    <FilterChip active={filter === "live"} onClick={() => setFilter("live")} count={stats.inFlight}>Live</FilterChip>
-                    <FilterChip active={filter === "resolved"} onClick={() => setFilter("resolved")} count={stats.resolved}>Resolved</FilterChip>
-                    <FilterChip active={filter === "failed"} onClick={() => setFilter("failed")} count={stats.failed}>Failed</FilterChip>
-                    <FilterChip active={filter === "excluded"} onClick={() => setFilter("excluded")} count={stats.excluded}>Excluded</FilterChip>
+                    {error && (
+                        <Alert variant="danger" className="text-xs">
+                            Could not load: {error}
+                        </Alert>
+                    )}
                 </div>
-
-                {error && <div className={styles.errorBox}>Could not load: {error}</div>}
             </div>
 
             {filteredGroups.length === 0 ? (
-                <div className={styles.emptyState}>
-                    {groups.length === 0
-                        ? "No watchdog entries recorded yet. Click Play in your client to see live activity here."
-                        : "No clicks match this filter."}
+                <div className="card border border-base-content/10 bg-base-100 shadow-sm">
+                    <div className="card-body items-center py-12 text-center text-base-content/50">
+                        {groups.length === 0
+                            ? "No watchdog entries recorded yet. Click Play in your client to see live activity here."
+                            : "No clicks match this filter."}
+                    </div>
                 </div>
             ) : (
                 <div className={styles.clickList}>
                     {filteredGroups.map(g => <ClickCard key={g.clickId} group={g} />)}
                 </div>
             )}
+
+            <ConfirmModal
+                show={showClearConfirm}
+                title="Clear watchdog log?"
+                message="Permanently delete all watchdog entries? This can't be undone."
+                confirmText="Clear log"
+                cancelText="Cancel"
+                onCancel={() => setShowClearConfirm(false)}
+                onConfirm={performClear}
+            />
         </div>
     );
 }
@@ -174,84 +204,97 @@ function ClickCard({ group }: { group: ClickGroup }) {
     const winner = group.attempts.find(a => a.isWinner);
 
     return (
-        <div className={styles.clickCard}>
-            <div className={styles.clickHeader}>
-                <div className={styles.clickHeaderMain}>
-                    <StatusPill status={status} />
-                    <div className={styles.clickTitle} title={group.requestedTitle}>{group.requestedTitle}</div>
+        <div className="card min-w-0 border border-base-content/10 bg-base-100 shadow-sm">
+            <div className="card-body gap-3 p-4 md:p-5">
+                <div className={styles.clickHeader}>
+                    <div className={styles.clickHeaderMain}>
+                        <StatusPill status={status} />
+                        <div className={styles.clickTitle} title={group.requestedTitle}>{group.requestedTitle}</div>
+                    </div>
+                    <div className={styles.clickHeaderMeta}>
+                        <Badge className="badge-ghost badge-sm lowercase">{group.contentType}</Badge>
+                        <Badge className="badge-ghost badge-sm">
+                            {group.attempts.length} attempt{group.attempts.length === 1 ? "" : "s"}
+                        </Badge>
+                        <span className="font-mono text-[11px] tabular-nums text-base-content/50" title={new Date(group.firstAt * 1000).toLocaleString()}>
+                            {formatAge(group.firstAt)}
+                        </span>
+                    </div>
                 </div>
-                <div className={styles.clickHeaderMeta}>
-                    <span className={styles.metaBadge}>{group.contentType}</span>
-                    <span className={styles.metaBadge}>{group.attempts.length} attempt{group.attempts.length === 1 ? "" : "s"}</span>
-                    <span className={styles.timestamp} title={new Date(group.firstAt * 1000).toLocaleString()}>
-                        {formatAge(group.firstAt)}
-                    </span>
-                </div>
-            </div>
 
-            {winner && (
-                <div className={styles.winnerLine}>
-                    Resolved via <span className={styles.winnerIndexer}>{winner.indexerName}</span>
-                    <span className={styles.winnerDot}>·</span>
-                    <span className={styles.winnerDuration}>{winner.durationMs}ms</span>
-                    {winner.size > 0 && <>
-                        <span className={styles.winnerDot}>·</span>
-                        <span>{formatBytes(winner.size)}</span>
-                    </>}
-                </div>
-            )}
+                {winner && (
+                    <div className="alert alert-soft flex min-h-0 flex-wrap items-center gap-2 py-2 text-xs">
+                        <span className="text-base-content/60">Resolved via</span>
+                        <span className="font-semibold text-base-content">{winner.indexerName}</span>
+                        <span className="text-base-content/30">·</span>
+                        <span className="font-mono tabular-nums text-base-content/70">{winner.durationMs}ms</span>
+                        {winner.size > 0 && <>
+                            <span className="text-base-content/30">·</span>
+                            <span className="font-mono tabular-nums text-base-content/70">{formatBytes(winner.size)}</span>
+                        </>}
+                    </div>
+                )}
 
-            <div className={styles.attemptTableWrap}>
-                <table className={styles.attemptTable}>
-                    <thead>
-                        <tr>
-                            <th className={styles.colRank}>#</th>
-                            <th className={styles.colCandidate}>Candidate</th>
-                            <th className={styles.colIndexer}>Indexer</th>
-                            <th className={styles.colProvider}>Provider</th>
-                            <th className={styles.colSize}>Size</th>
-                            <th className={styles.colOutcome}>Outcome</th>
-                            <th className={styles.colReason}>Reason</th>
-                            <th className={styles.colDuration}>Took</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+                <div className={styles.attemptTableWrap}>
+                    <div className="overflow-x-auto">
+                        <table className={`table table-xs w-full ${styles.attemptTable}`}>
+                            <thead>
+                                <tr>
+                                    <th className={styles.colRank}>#</th>
+                                    <th className={styles.colCandidate}>Candidate</th>
+                                    <th className={styles.colIndexer}>Indexer</th>
+                                    <th className={styles.colProvider}>Provider</th>
+                                    <th className={styles.colSize}>Size</th>
+                                    <th className={styles.colOutcome}>Outcome</th>
+                                    <th className={styles.colReason}>Reason</th>
+                                    <th className={styles.colDuration}>Took</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {group.attempts.map((a, i) => (
+                                    <tr key={i} className={a.isWinner ? "bg-success/5" : undefined}>
+                                        <td className={styles.colRank}>{a.rankIndex + 1}</td>
+                                        <td className={styles.colCandidate} title={a.candidateTitle}>{a.candidateTitle || "—"}</td>
+                                        <td className={styles.colIndexer}>{a.indexerName || "—"}</td>
+                                        <td className={styles.colProvider} title={a.providerHost ?? undefined}>{a.providerNickname?.trim() || formatProviderShort(a.providerHost)}</td>
+                                        <td className={styles.colSize}>{formatBytes(a.size)}</td>
+                                        <td className={styles.colOutcome}>
+                                            <OutcomeBadge outcome={a.outcome} winner={a.isWinner} />
+                                        </td>
+                                        <td className={styles.colReason} title={a.failReason ?? undefined}>{a.failReason ?? "—"}</td>
+                                        <td className={styles.colDuration}>{a.durationMs}ms</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className={styles.attemptCards}>
                         {group.attempts.map((a, i) => (
-                            <tr key={i} className={a.isWinner ? styles.winnerRow : undefined}>
-                                <td className={styles.colRank}>{a.rankIndex + 1}</td>
-                                <td className={styles.colCandidate} title={a.candidateTitle}>{a.candidateTitle || "—"}</td>
-                                <td className={styles.colIndexer}>{a.indexerName || "—"}</td>
-                                <td className={styles.colProvider} title={a.providerHost ?? undefined}>{a.providerNickname?.trim() || formatProviderShort(a.providerHost)}</td>
-                                <td className={styles.colSize}>{formatBytes(a.size)}</td>
-                                <td className={styles.colOutcome}>
-                                    <OutcomeBadge outcome={a.outcome} winner={a.isWinner} />
-                                </td>
-                                <td className={styles.colReason} title={a.failReason ?? undefined}>{a.failReason ?? "—"}</td>
-                                <td className={styles.colDuration}>{a.durationMs}ms</td>
-                            </tr>
+                            <div key={i} className={`card card-compact border border-base-content/10 bg-base-200 ${a.isWinner ? "border-success/30 bg-success/5" : ""}`}>
+                                <div className="card-body gap-1 p-3">
+                                    <div className={styles.attemptCardTop}>
+                                        <span className="font-mono text-[11px] font-semibold tabular-nums text-base-content/50">#{a.rankIndex + 1}</span>
+                                        <span className={styles.attemptIndexer} title={a.indexerName}>{a.indexerName || "—"}</span>
+                                        <OutcomeBadge outcome={a.outcome} winner={a.isWinner} />
+                                    </div>
+                                    <div className={styles.attemptCardTitle} title={a.candidateTitle}>{a.candidateTitle || "—"}</div>
+                                    <div className={styles.attemptCardMeta}>
+                                        <span title={a.providerHost ?? undefined}>📡 {a.providerNickname?.trim() || formatProviderShort(a.providerHost)}</span>
+                                        <span className={styles.attemptCardMetaDot}>·</span>
+                                        <span>{formatBytes(a.size)}</span>
+                                        <span className={styles.attemptCardMetaDot}>·</span>
+                                        <span>{a.durationMs}ms</span>
+                                    </div>
+                                    {a.failReason && (
+                                        <div className="mt-1 rounded-box border border-base-content/10 bg-base-100 px-2 py-1 text-[11px] text-base-content/60 break-words">
+                                            {a.failReason}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         ))}
-                    </tbody>
-                </table>
-
-                <div className={styles.attemptCards}>
-                    {group.attempts.map((a, i) => (
-                        <div key={i} className={`${styles.attemptCard} ${a.isWinner ? styles.attemptCardWinner : ""}`}>
-                            <div className={styles.attemptCardTop}>
-                                <span className={styles.attemptRank}>#{a.rankIndex + 1}</span>
-                                <span className={styles.attemptIndexer} title={a.indexerName}>{a.indexerName || "—"}</span>
-                                <OutcomeBadge outcome={a.outcome} winner={a.isWinner} />
-                            </div>
-                            <div className={styles.attemptCardTitle} title={a.candidateTitle}>{a.candidateTitle || "—"}</div>
-                            <div className={styles.attemptCardMeta}>
-                                <span title={a.providerHost ?? undefined}>📡 {a.providerNickname?.trim() || formatProviderShort(a.providerHost)}</span>
-                                <span className={styles.attemptCardMetaDot}>·</span>
-                                <span>{formatBytes(a.size)}</span>
-                                <span className={styles.attemptCardMetaDot}>·</span>
-                                <span>{a.durationMs}ms</span>
-                            </div>
-                            {a.failReason && <div className={styles.attemptCardReason}>{a.failReason}</div>}
-                        </div>
-                    ))}
+                    </div>
                 </div>
             </div>
         </div>
@@ -259,14 +302,14 @@ function ClickCard({ group }: { group: ClickGroup }) {
 }
 
 function Stat({ label, value, tone }: { label: string, value: number, tone?: "ok" | "bad" | "warn" }) {
-    const toneClass = tone === "ok" ? styles.statValueOk
-        : tone === "bad" ? styles.statValueBad
-        : tone === "warn" ? styles.statValueWarn
+    const valueClass = tone === "ok" ? "text-success"
+        : tone === "bad" ? "text-error"
+        : tone === "warn" ? "text-warning"
         : "";
     return (
-        <div className={styles.stat}>
-            <div className={`${styles.statValue} ${toneClass}`}>{value}</div>
-            <div className={styles.statLabel}>{label}</div>
+        <div className="stat px-4 py-2">
+            <div className="stat-title text-[10px] uppercase tracking-wider">{label}</div>
+            <div className={`stat-value font-mono text-xl ${valueClass}`}>{value}</div>
         </div>
     );
 }
@@ -275,29 +318,29 @@ function FilterChip({ active, onClick, count, children }: { active: boolean, onC
     return (
         <button
             type="button"
-            className={`${styles.filterChip} ${active ? styles.filterChipActive : ""}`}
+            className={`btn btn-sm join-item gap-2 ${active ? "btn-primary" : "btn-ghost"}`}
             onClick={onClick}>
             <span>{children}</span>
-            <span className={styles.filterChipCount}>{count}</span>
+            <span className="badge badge-xs badge-ghost font-mono tabular-nums">{count}</span>
         </button>
     );
 }
 
 function StatusPill({ status }: { status: "win" | "loss" | "inflight" }) {
     const label = status === "win" ? "Resolved" : status === "loss" ? "Failed" : "Live";
-    const cls = status === "win" ? styles.pillOk
-        : status === "loss" ? styles.pillBad
-        : styles.pillLive;
-    return <span className={`${styles.statusPill} ${cls}`}>{label}</span>;
+    const cls = status === "win" ? "badge-success"
+        : status === "loss" ? "badge-error"
+        : "badge-ghost";
+    return <span className={`badge badge-sm uppercase ${cls}`}>{label}</span>;
 }
 
 function OutcomeBadge({ outcome, winner }: { outcome: WatchdogOutcome, winner: boolean }) {
-    if (winner) return <span className={`${styles.outcomeBadge} ${styles.outcomeWin}`}>winner</span>;
+    if (winner) return <Badge className="badge-success badge-sm uppercase">winner</Badge>;
     const tone = outcomeToTone(outcome);
-    const cls = tone === "ok" ? styles.outcomeOk
-        : tone === "warn" ? styles.outcomeWarn
-        : styles.outcomeBad;
-    return <span className={`${styles.outcomeBadge} ${cls}`}>{shortOutcome(outcome)}</span>;
+    const cls = tone === "ok" ? "badge-success"
+        : tone === "warn" ? "badge-warning"
+        : "badge-error";
+    return <Badge className={`badge-sm uppercase ${cls}`}>{shortOutcome(outcome)}</Badge>;
 }
 
 function outcomeToTone(o: WatchdogOutcome): "ok" | "warn" | "bad" {

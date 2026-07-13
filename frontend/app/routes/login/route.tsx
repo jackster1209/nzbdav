@@ -9,14 +9,11 @@ type LoginPageData = {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-    // if already logged in, redirect to landing page
     if (await isAuthenticated(request)) return redirect("/");
 
-    // if we need to go through onboarding, redirect to onboarding page
     const isOnboarding = await backendClient.isOnboarding();
     if (isOnboarding) return redirect("/onboarding");
 
-    // otherwise, proceed to login page!
     return { loginError: null };
 }
 
@@ -29,56 +26,60 @@ export default function Index({ loaderData, actionData }: Route.ComponentProps) 
     const submitButtonText = isLoading ? "Logging in..." : "Login";
 
     return (
-        <main className="flex min-h-dvh w-full items-center justify-center bg-gray-900 px-4 py-8 text-white">
-            <Form
-                className="w-full max-w-sm space-y-5 rounded-xl border border-slate-700/70 bg-gray-800 p-6 shadow-xl shadow-black/20 sm:p-8"
-                method="POST"
-            >
-                <div className="flex flex-col items-center gap-3 text-center">
-                    <img className="h-16 w-16" src="/logo.svg" alt="NzbDav" />
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">NzbDav</h1>
-                        <p className="mt-1 text-sm text-slate-400">Sign in to manage your server</p>
-                    </div>
-                </div>
-
-                {showError && <Alert variant="danger">{pageData.loginError}</Alert>}
-
-                <div className="space-y-4">
-                    <label className="block space-y-1.5">
-                        <span className="text-xs font-medium text-slate-300">Username</span>
-                        <Input
-                            className="w-full bg-slate-950/40 px-3 py-2.5"
-                            name="username"
-                            type="text"
-                            placeholder="Enter your username"
-                            autoComplete="username"
-                            autoFocus
-                        />
-                    </label>
-                    <label className="block space-y-1.5">
-                        <span className="text-xs font-medium text-slate-300">Password</span>
-                        <Input
-                            className="w-full bg-slate-950/40 px-3 py-2.5"
-                            name="password"
-                            type="password"
-                            placeholder="Enter your password"
-                            autoComplete="current-password"
-                        />
-                    </label>
-                </div>
-
-                <Button
-                    className="w-full"
-                    type="submit"
-                    size="medium"
-                    variant="primary"
-                    disabled={submitButtonDisabled}
+        <main className="hero min-h-dvh bg-base-300">
+            <div className="hero-content w-full max-w-sm px-4 py-8">
+                <Form
+                    className="card w-full border border-base-content/10 bg-base-100 shadow-xl"
+                    method="POST"
                 >
-                    {isLoading && <Spinner className="text-white" />}
-                    {submitButtonText}
-                </Button>
-            </Form>
+                    <div className="card-body gap-5">
+                        <div className="flex flex-col items-center gap-3 text-center">
+                            <img className="h-16 w-16" src="/logo.svg" alt="NzbDav" />
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tight">NzbDav</h1>
+                                <p className="mt-1 text-sm text-base-content/60">Sign in to manage your server</p>
+                            </div>
+                        </div>
+
+                        {showError && <Alert variant="danger">{pageData.loginError}</Alert>}
+
+                        <fieldset className="fieldset space-y-3">
+                            <label className="floating-label">
+                                <span>Username</span>
+                                <Input
+                                    className="w-full"
+                                    name="username"
+                                    type="text"
+                                    placeholder="Enter your username"
+                                    autoComplete="username"
+                                    autoFocus
+                                />
+                            </label>
+                            <label className="floating-label">
+                                <span>Password</span>
+                                <Input
+                                    className="w-full"
+                                    name="password"
+                                    type="password"
+                                    placeholder="Enter your password"
+                                    autoComplete="current-password"
+                                />
+                            </label>
+                        </fieldset>
+
+                        <Button
+                            className="w-full"
+                            type="submit"
+                            size="medium"
+                            variant="primary"
+                            disabled={submitButtonDisabled}
+                        >
+                            {isLoading && <Spinner />}
+                            {submitButtonText}
+                        </Button>
+                    </div>
+                </Form>
+            </div>
         </main>
     );
 }
