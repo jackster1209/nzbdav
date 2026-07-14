@@ -15,13 +15,16 @@ export function RemoveUnlinkedFiles({ savedConfig }: RemoveUnlinkedFilesProps) {
     const [connected, setConnected] = useState<boolean>(false);
     const [progress, setProgress] = useState<string | null>(null);
     const [isFetching, setIsFetching] = useState<boolean>(false);
+    // Replayed non-terminal ctp state must not look like an active run until the user clicks.
+    const [runStarted, setRunStarted] = useState<boolean>(false);
+    const [statusError, setStatusError] = useState<string | null>(null);
     const progressMessage = progress?.replace('Dry Run - ', '');
 
     // derived variables
     const libraryDir = savedConfig["media.library-dir"];
     const isDone = progressMessage?.startsWith("Done");
     const isFinished = progressMessage?.startsWith("Done") || progressMessage?.startsWith("Failed") || progressMessage?.startsWith("Aborted");
-    const isRunning = !isFinished && (isFetching || progress !== null);
+    const isRunning = !isFinished && (isFetching || runStarted);
     const isRunButtonEnabled = !!libraryDir && connected && !isRunning;
     const runButtonVariant = isRunButtonEnabled ? 'success' : 'secondary';
     const runButtonLabel = isRunning ? "Running..." : "Run Task";
@@ -41,18 +44,45 @@ export function RemoveUnlinkedFiles({ savedConfig }: RemoveUnlinkedFilesProps) {
         return connect();
     }, [setProgress, setConnected]);
 
+    useEffect(() => {
+        if (isFinished)
+            setRunStarted(false);
+    }, [isFinished]);
+
+    const startTask = useCallback(async (url: string) => {
+        setStatusError(null);
+        // Clear any stale terminal message so isFinished doesn't mask the new run
+        // until its first progress message arrives.
+        setProgress(null);
+        setRunStarted(true);
+        setIsFetching(true);
+        try {
+            const response = await fetch(url);
+            if (response.status === 409) {
+                setStatusError("Task already running.");
+                setRunStarted(false);
+                return;
+            }
+            if (!response.ok) {
+                setStatusError(`Request failed (${response.status}).`);
+                setRunStarted(false);
+            }
+        } catch {
+            setStatusError("Request failed.");
+            setRunStarted(false);
+        } finally {
+            setIsFetching(false);
+        }
+    }, []);
+
     // events
     const onRun = useCallback(async () => {
-        setIsFetching(true);
-        await fetch("/api/remove-unlinked-files");
-        setIsFetching(false);
-    }, [setIsFetching]);
+        await startTask("/api/remove-unlinked-files");
+    }, [startTask]);
 
-    const onDryRun = useCallback(async (event: any) => {
-        setIsFetching(true);
-        await fetch("/api/remove-unlinked-files/dry-run");
-        setIsFetching(false);
-    }, [setIsFetching]);
+    const onDryRun = useCallback(async () => {
+        await startTask("/api/remove-unlinked-files/dry-run");
+    }, [startTask]);
 
     // view
     const dryRunButton =
@@ -106,7 +136,7 @@ export function RemoveUnlinkedFiles({ savedConfig }: RemoveUnlinkedFilesProps) {
                             {runButtonLabel}
                         </Button>
                         <div className={'font-mono text-xs text-slate-300'}>
-                            {progress}
+                            {statusError ?? progress}
                             {isDone && <>
                                 &nbsp;<a href="/api/remove-unlinked-files/audit">Audit.</a>
                             </>}
