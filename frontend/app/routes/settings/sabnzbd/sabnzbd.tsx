@@ -197,6 +197,24 @@ export function SabnzbdSettings({ config, setNewConfig, appVersion }: SabnzbdSet
             <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm text-slate-300">
                     <Checkbox
+                    id="fail-missing-non-video-checkbox"
+                    aria-describedby="fail-missing-non-video-help"
+                    checked={config["api.skip-non-video-on-missing-articles"] === "false"}
+                    onChange={e => setNewConfig({
+                        ...config,
+                        "api.skip-non-video-on-missing-articles": String(!e.target.checked)
+                    })} />
+                    <span>Fail downloads when non-video files have missing articles</span>
+                </label>
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="fail-missing-non-video-help">
+                    By default, missing articles in PAR2/NFO/subtitle files are skipped and the job still completes.
+                    Enable this to fail the download instead so *Arr can grab an alternate release.
+                </p>
+            </div>
+            <hr />
+            <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                    <Checkbox
                     id="ensure-article-existence-checkbox"
                     aria-describedby="ensure-article-existence-help"
                     ref={ensureArticleExistanceSetting.masterCheckboxRef}
@@ -319,6 +337,7 @@ export function isSabnzbdSettingsUpdated(config: Record<string, string>, newConf
         || config["api.manual-category"] !== newConfig["api.manual-category"]
         || config["rclone.mount-dir"] !== newConfig["rclone.mount-dir"]
         || config["api.ensure-importable-video"] !== newConfig["api.ensure-importable-video"]
+        || config["api.skip-non-video-on-missing-articles"] !== newConfig["api.skip-non-video-on-missing-articles"]
         || config["api.ensure-article-existence-categories"] !== newConfig["api.ensure-article-existence-categories"]
         || config["api.ignore-history-limit"] !== newConfig["api.ignore-history-limit"]
         || config["api.duplicate-nzb-behavior"] !== newConfig["api.duplicate-nzb-behavior"]
