@@ -151,6 +151,7 @@ public class ConfigManager
                 case ConfigKeys.UsenetMaxQueueConnections:
                 case ConfigKeys.UsenetPipeliningDepth:
                 case ConfigKeys.UsenetArticleBufferSize:
+                case ConfigKeys.UsenetIdleConnectionTimeoutSeconds:
                 case ConfigKeys.UsenetSegmentCacheMaxGb:
                 case ConfigKeys.UsenetStreamingPriority:
                 case ConfigKeys.WardenQuorum:
@@ -426,6 +427,18 @@ public class ConfigManager
             StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.UsenetArticleBufferSize))
             ?? "40"
         );
+    }
+
+    /// <summary>
+    /// Idle timeout for pooled NNTP connections. Default 60s; clamped to [15, 300].
+    /// Takes effect on the next connection-pool rebuild (provider config change or restart).
+    /// </summary>
+    public int GetIdleConnectionTimeoutSeconds()
+    {
+        var configured = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.UsenetIdleConnectionTimeoutSeconds));
+        if (configured is null || !int.TryParse(configured, out var value))
+            return 60;
+        return Math.Clamp(value, 15, 300);
     }
 
     public bool IsPipelinedBodyRequestsEnabled()

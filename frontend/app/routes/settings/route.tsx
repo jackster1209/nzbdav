@@ -45,6 +45,7 @@ const defaultConfig = {
     "usenet.max-queue-connections": "",
     "usenet.streaming-priority": "80",
     "usenet.article-buffer-size": "40",
+    "usenet.idle-connection-timeout-seconds": "60",
     "usenet.pipelined-body-requests": "true",
     "usenet.segment-cache.enabled": "false",
     "usenet.segment-cache.path": "/config/segment-cache",

@@ -185,6 +185,24 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
             </div>
             <hr />
             <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-200" htmlFor="idle-connection-timeout-input">Idle connection timeout (seconds)</label>
+                <Input
+                    {...className(['w-full', !isValidIdleConnectionTimeout(config["usenet.idle-connection-timeout-seconds"]) && 'border-red-500 focus:border-red-500'])}
+                    type="text"
+                    id="idle-connection-timeout-input"
+                    aria-describedby="idle-connection-timeout-help"
+                    placeholder="60"
+                    value={config["usenet.idle-connection-timeout-seconds"] ?? "60"}
+                    onChange={e => setNewConfig({ ...config, "usenet.idle-connection-timeout-seconds": e.target.value })} />
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="idle-connection-timeout-help">
+                    How long unused NNTP connections stay in the pool before being closed (15–300, default 60).
+                    Raising this can reduce reconnect stalls during playback gaps, but values above your
+                    provider&apos;s server-side idle timeout are counterproductive. Takes effect on the next
+                    connection-pool rebuild (provider config change or restart).
+                </p>
+            </div>
+            <hr />
+            <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm text-slate-300">
                     <Checkbox
                     id="pipelined-body-requests-checkbox"
@@ -254,6 +272,7 @@ export function isWebdavSettingsUpdated(config: Record<string, string>, newConfi
         || config["usenet.max-queue-connections"] !== newConfig["usenet.max-queue-connections"]
         || config["usenet.streaming-priority"] !== newConfig["usenet.streaming-priority"]
         || config["usenet.article-buffer-size"] !== newConfig["usenet.article-buffer-size"]
+        || config["usenet.idle-connection-timeout-seconds"] !== newConfig["usenet.idle-connection-timeout-seconds"]
         || config["usenet.pipelined-body-requests"] !== newConfig["usenet.pipelined-body-requests"]
         || config["webdav.show-hidden-files"] !== newConfig["webdav.show-hidden-files"]
         || config["webdav.enforce-readonly"] !== newConfig["webdav.enforce-readonly"]
@@ -272,6 +291,7 @@ export function isWebdavSettingsValid(newConfig: Record<string, string>) {
         && isValidMaxQueueConnections(newConfig["usenet.max-queue-connections"])
         && isValidStreamingPriority(newConfig["usenet.streaming-priority"])
         && isValidArticleBufferSize(newConfig["usenet.article-buffer-size"])
+        && isValidIdleConnectionTimeout(newConfig["usenet.idle-connection-timeout-seconds"])
         && segmentCacheValid;
 }
 
@@ -304,4 +324,10 @@ function isValidStreamingPriority(value: string): boolean {
 
 function isValidArticleBufferSize(value: string): boolean {
     return isPositiveInteger(value);
+}
+
+function isValidIdleConnectionTimeout(value: string | undefined): boolean {
+    if (value == null || value.trim() === "") return true;
+    const num = Number(value);
+    return Number.isInteger(num) && num >= 15 && num <= 300;
 }
