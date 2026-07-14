@@ -38,6 +38,7 @@ public class ConfigManager
             }
         }
         lock (_excludeLock) { _compiledExcludeCache = null; }
+        SyncPathSanitizer();
     }
 
     private string? GetConfigValue(string configName)
@@ -129,8 +130,13 @@ public class ConfigManager
         }
 
         var changedConfig = configItems.ToDictionary(x => x.ConfigName, x => x.ConfigValue);
+        if (changedConfig.ContainsKey(ConfigKeys.WebdavWindowsSafePaths))
+            SyncPathSanitizer();
         OnConfigChanged?.Invoke(this, new ConfigEventArgs { ChangedConfig = changedConfig });
     }
+
+    private void SyncPathSanitizer() =>
+        PathSanitizer.SetWindowsSafePathsEnabled(IsWindowsSafePathsEnabled());
 
     /// <summary>
     /// Validates incoming config values, failing fast for anything that would otherwise throw
@@ -204,6 +210,7 @@ public class ConfigManager
                 case ConfigKeys.WebdavShowHiddenFiles:
                 case ConfigKeys.WebdavEnforceReadonly:
                 case ConfigKeys.WebdavPreviewPar2Files:
+                case ConfigKeys.WebdavWindowsSafePaths:
                 case ConfigKeys.UsenetMaxDownloadConnectionsPerStream:
                 case ConfigKeys.UsenetPipeliningEnabled:
                 case ConfigKeys.UsenetCascadeEnabled:
@@ -475,6 +482,13 @@ public class ConfigManager
         var defaultValue = true;
         var configValue = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.WebdavEnforceReadonly));
         return (configValue != null ? bool.Parse(configValue) : defaultValue);
+    }
+
+    public bool IsWindowsSafePathsEnabled()
+    {
+        var defaultValue = true;
+        var configValue = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.WebdavWindowsSafePaths));
+        return configValue != null ? bool.Parse(configValue) : defaultValue;
     }
 
     public HashSet<string> GetEnsureArticleExistenceCategories()

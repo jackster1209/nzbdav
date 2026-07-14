@@ -57,6 +57,7 @@ const defaultConfig = {
     "webdav.show-hidden-files": "false",
     "webdav.enforce-readonly": "true",
     "webdav.preview-par2-files": "false",
+    "webdav.windows-safe-paths": "true",
     "rclone.rc-enabled": "false",
     "rclone.host": "",
     "rclone.user": "",
