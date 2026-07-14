@@ -8,6 +8,7 @@ import { useHistoryEvents, useQueueEvents } from "./controllers/events-controlle
 import { initializeQueueHistoryWebsocket } from "./controllers/websocket-controller";
 import { initializeUploadController } from "./controllers/nzb-upload-controller";
 import { useQueueDropzone } from "./controllers/dropzone-controller";
+import { Alert } from "~/components/ui";
 
 const pageSize = 100;
 
@@ -96,6 +97,12 @@ export default function Queue(props: Route.ComponentProps) {
     // view
     return (
         <div className="min-h-full min-w-full px-4 py-4 text-sm text-slate-300 md:px-8">
+
+            {dropzone.rejectMessage && (
+                <Alert className="mb-4" variant="warning">
+                    {dropzone.rejectMessage}
+                </Alert>
+            )}
 
             {/* queue */}
             <div className="mb-12 min-h-[413.9px] min-[450px]:min-h-[382.9px]">

@@ -2,6 +2,16 @@ import { useCallback, useRef, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
 import type { UploadingFile } from "../route";
 
+function isIosUserAgent(): boolean {
+    if (typeof navigator === "undefined") return false;
+    return /iPad|iPhone|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function isNzbFile(file: File): boolean {
+    return file.name.toLowerCase().endsWith(".nzb");
+}
+
 export function useQueueDropzone(
     setUploadingFiles: (value: React.SetStateAction<UploadingFile[]>) => void,
     uploadQueueRef: React.RefObject<UploadingFile[]>,
@@ -10,6 +20,7 @@ export function useQueueDropzone(
     const inputRef = useRef<HTMLInputElement>(null);
     const dragDepthRef = useRef(0);
     const [isDragActive, setIsDragActive] = useState(false);
+    const [rejectMessage, setRejectMessage] = useState<string | null>(null);
 
     const enqueueFiles = useCallback((acceptedFiles: File[]) => {
         const newFiles: UploadingFile[] = acceptedFiles.map(file => ({
@@ -53,19 +64,29 @@ export function useQueueDropzone(
         event.preventDefault();
         dragDepthRef.current = 0;
         setIsDragActive(false);
+        setRejectMessage(null);
         enqueueFiles(
-            Array.from(event.dataTransfer.files)
-                .filter(file => file.name.toLowerCase().endsWith(".nzb"))
+            Array.from(event.dataTransfer.files).filter(isNzbFile)
         );
     }, [enqueueFiles]);
 
     const onInputChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-        enqueueFiles(Array.from(event.target.files ?? []));
+        const selected = Array.from(event.target.files ?? []);
+        const nzbFiles = selected.filter(isNzbFile);
+        const rejected = selected.length - nzbFiles.length;
+        setRejectMessage(
+            rejected > 0
+                ? `Skipped ${rejected} non-.nzb file${rejected === 1 ? "" : "s"}.`
+                : null,
+        );
+        enqueueFiles(nzbFiles);
         event.target.value = "";
     }, [enqueueFiles]);
 
     return {
         isDragActive,
+        rejectMessage,
+        clearRejectMessage: () => setRejectMessage(null),
         open: () => inputRef.current?.click(),
         getRootProps: () => ({
             onDragEnter,
@@ -73,13 +94,19 @@ export function useQueueDropzone(
             onDragLeave,
             onDrop,
         }),
-        getInputProps: () => ({
-            ref: inputRef,
-            type: "file",
-            accept: ".nzb,application/x-nzb",
-            multiple: true,
-            hidden: true,
-            onChange: onInputChange,
-        }),
+        getInputProps: () => {
+            // iOS Safari greys out unrecognized extensions in `accept`; omit it there.
+            const props: Record<string, unknown> = {
+                ref: inputRef,
+                type: "file",
+                multiple: true,
+                hidden: true,
+                onChange: onInputChange,
+            };
+            if (!isIosUserAgent()) {
+                props.accept = ".nzb,application/x-nzb";
+            }
+            return props;
+        },
     };
 }
