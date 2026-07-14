@@ -18,10 +18,12 @@ public static class SymlinkAndStrmUtil
 
     private static IEnumerable<ISymlinkOrStrmInfo> GetAllSymlinksAndStrmsLinux(string directoryPath)
     {
-        // pipefail so find traversal errors (permission denied, etc.) are not masked by xargs.
+        // find -exec (instead of piping to xargs) keeps traversal errors (permission
+        // denied, etc.) in find's own exit code without `set -o pipefail`, which
+        // Ubuntu's dash (/bin/sh) does not support.
         const string command =
             """
-            set -o pipefail; find . \( -type l -o -name '*.strm' \) -print0 | xargs -0 sh -c '
+            find . \( -type l -o -name '*.strm' \) -exec sh -c '
               for path in \"$@\"; do
                 echo \"$path\"
                 if [ \"${path##*.}\" = \"strm\" ]; then
@@ -30,7 +32,7 @@ public static class SymlinkAndStrmUtil
                   echo \"$(readlink \"$path\")\"
                 fi
               done
-            ' sh
+            ' sh {} +
             """;
 
         var escapedDirectory = directoryPath.Replace("'", "'\"'\"'");

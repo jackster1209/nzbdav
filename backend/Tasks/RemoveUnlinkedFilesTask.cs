@@ -156,6 +156,34 @@ public class RemoveUnlinkedFilesTask(
 #pragma warning restore EF1002
     }
 
+    /// <summary>
+    /// Deletes DavItems by the exact Id text returned from a raw SELECT. Going through
+    /// Guid.Parse + ExecuteDelete re-serializes Ids as uppercase, which silently misses
+    /// rows stored lowercase (e.g. the folder seeded by the Fix-Empty-Categories migration).
+    /// </summary>
+    private static async Task<int> DeleteItemsByIdTextAsync(
+        DavDatabaseContext dbContext,
+        IReadOnlyList<UnlinkedItemInfo> items,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new SqliteParameter[items.Count];
+        var placeholders = new string[items.Count];
+        for (var i = 0; i < items.Count; i++)
+        {
+            var name = $"@p{i}";
+            placeholders[i] = name;
+            parameters[i] = new SqliteParameter(name, items[i].Id);
+        }
+
+        // Placeholder names are generated locally (@p0..@pN); values are bound via SqliteParameter.
+#pragma warning disable EF1002
+        return await dbContext.Database.ExecuteSqlRawAsync(
+            $"DELETE FROM DavItems WHERE Id IN ({string.Join(",", placeholders)})",
+            parameters.AsEnumerable(),
+            cancellationToken).ConfigureAwait(false);
+#pragma warning restore EF1002
+    }
+
     private IEnumerable<Guid> GetLinkedIds()
     {
         var debounce = DebounceUtil.CreateDebounce(TimeSpan.FromMilliseconds(500));
@@ -248,11 +276,8 @@ public class RemoveUnlinkedFilesTask(
             if (itemsToDelete.Count == 0)
                 break;
 
-            // Delete the items via parameterized Contains (no string-built IN list).
-            var idsToDelete = itemsToDelete.Select(x => Guid.Parse(x.Id)).ToList();
-            var deleted = await dbContext.Items
-                .Where(x => idsToDelete.Contains(x.Id))
-                .ExecuteDeleteAsync()
+            // Delete by the exact Id text from the select so stored casing never matters.
+            var deleted = await DeleteItemsByIdTextAsync(dbContext, itemsToDelete)
                 .ConfigureAwait(false);
 
             // A batch that selects rows but deletes none would loop forever with a climbing
@@ -329,10 +354,9 @@ public class RemoveUnlinkedFilesTask(
             if (emptyDirs.Count == 0)
                 break;
 
-            var idsToDelete = emptyDirs.Select(x => Guid.Parse(x.Id)).ToList();
-            var deleted = await dbContext.Items
-                .Where(x => idsToDelete.Contains(x.Id))
-                .ExecuteDeleteAsync(cancellationToken)
+            // Delete by the exact Id text from the select so stored casing never matters
+            // (the Fix-Empty-Categories migration seeds a lowercase-Id folder).
+            var deleted = await DeleteItemsByIdTextAsync(dbContext, emptyDirs, cancellationToken)
                 .ConfigureAwait(false);
 
             if (deleted == 0)

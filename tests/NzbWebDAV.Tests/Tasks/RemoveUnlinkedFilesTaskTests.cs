@@ -70,9 +70,16 @@ public class RemoveUnlinkedFilesTaskTests
         ctx.Items.Add(file);
         await ctx.SaveChangesAsync();
 
+        // Drain migration-seeded empty category folders (e.g. /content/uncategorized
+        // from Fix-Empty-Categories). Filling them via EF fails: ParentId is stored
+        // uppercase while the seeded folder Id is lowercase, so raw SQL still sees
+        // the folder as empty.
+        var createdBefore = DateTime.Now.AddMinutes(1);
+        await RemoveUnlinkedFilesTask.RemoveEmptyDirectoriesAsync(ctx, createdBefore);
+
         var removed = await RemoveUnlinkedFilesTask.RemoveEmptyDirectoriesAsync(
             ctx,
-            DateTime.Now.AddMinutes(1));
+            createdBefore);
 
         Assert.Equal(0, removed);
         Assert.True(await ctx.Items.AnyAsync(x => x.Id == file.Id));
