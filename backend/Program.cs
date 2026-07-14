@@ -34,7 +34,7 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);        var (minThreads, maxThreads) = ThreadPoolUtil.ResolveLimits(
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance); var (minThreads, maxThreads) = ThreadPoolUtil.ResolveLimits(
             Environment.ProcessorCount,
             EnvironmentUtil.GetLongVariable("THREADPOOL_MIN_THREADS"),
             EnvironmentUtil.GetLongVariable("THREADPOOL_MAX_THREADS"));
