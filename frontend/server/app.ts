@@ -34,7 +34,7 @@ let lastProxyFailureLogAt = 0;
 
 function logProxyFailure(message: string, error: unknown) {
   const now = Date.now();
-  if (isExpectedBackendConnectionError(error) && isWithinBackendStartupGrace(now)) {
+  if (isExpectedBackendConnectionError(error) && isWithinBackendStartupGrace()) {
     if (!loggedStartupWait) {
       logger.info("Waiting for backend to start...");
       loggedStartupWait = true;
