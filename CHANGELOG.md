@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.7.18](https://github.com/nzbdav/nzbdav/compare/v0.7.17...v0.7.18) (2026-07-14)
+
+
+### Features
+
+* **api:** add database backup endpoints ([ba8b32c](https://github.com/nzbdav/nzbdav/commit/ba8b32c71b43ef88f74c51653c95e1ea17203eb2))
+* **db:** add backup store with manifests and retention pruning ([bfc0a18](https://github.com/nzbdav/nzbdav/commit/bfc0a18a94140c2b16417017cf373cf0adaf25e9))
+* **db:** add database backup task and daily scheduler ([7daa01d](https://github.com/nzbdav/nzbdav/commit/7daa01d70a4f30307f0d2faaf440748acff4c349))
+* **db:** add sqlite .sql dump and import utilities ([61442b1](https://github.com/nzbdav/nzbdav/commit/61442b1f3a031083c37d4ff820be29ecdf83bb94))
+* **db:** integrated database backup and restore ([ef4da2e](https://github.com/nzbdav/nzbdav/commit/ef4da2e8dbf0b5096cb5cca9455be6d4089051bb))
+* **db:** stage guided restore and swap databases during maintenance ([9777b08](https://github.com/nzbdav/nzbdav/commit/9777b086b24e8dc004ea6895b738724b02983f08))
+* **docker:** restart loop for staged database restores ([71fc260](https://github.com/nzbdav/nzbdav/commit/71fc26057470bc1f001b587a6923477d5ab6ca1b))
+* make ThreadPool limits configurable ([00f1a4a](https://github.com/nzbdav/nzbdav/commit/00f1a4ac7a9eb5a0de091a5788dc1a97b4fc5d3f))
+* make ThreadPool limits configurable via env vars ([b8e8a98](https://github.com/nzbdav/nzbdav/commit/b8e8a98ccae09d59ec69fc7bcfbbf277cd9ddad9))
+* **ui:** add backup and restore settings tab ([06d218e](https://github.com/nzbdav/nzbdav/commit/06d218ef33628e8a697d104c14744a05200d0ab1))
+* **ui:** notify non-release builds of new commits on main ([85b5f22](https://github.com/nzbdav/nzbdav/commit/85b5f22e7a3b7cf5731cf4b2c750f5856ae48d05))
+* **ui:** notify stale source and dev builds ([00daa25](https://github.com/nzbdav/nzbdav/commit/00daa25353b1331dd48e80bceb1ca4aa3a6565f2))
+* **websocket:** add bounded outbound backpressure ([5c8b6b5](https://github.com/nzbdav/nzbdav/commit/5c8b6b56bac4424d6b2c13fdb566df2676232a08))
+* **websocket:** add bounded outbound backpressure ([4758436](https://github.com/nzbdav/nzbdav/commit/4758436cf9850d7e40dbda447a86a9c913018be0))
+
+
+### Bug Fixes
+
+* **deps:** bump the github-actions group with 4 updates ([b60361f](https://github.com/nzbdav/nzbdav/commit/b60361f0e49ccebbe3091cf9551eccd08a8ba841))
+* **ui:** check main source clones for new commits ([992489d](https://github.com/nzbdav/nzbdav/commit/992489df12a97c27d253f8524bae900e853a82c6))
+* **webdav:** clamp infinite-depth PROPFIND to depth 1 ([9b9638f](https://github.com/nzbdav/nzbdav/commit/9b9638f7f52e6632b435912a8127a01267fe2d7c))
+
+
+### Performance Improvements
+
+* **webdav:** stream and order directory listings from SQL ([425b9cc](https://github.com/nzbdav/nzbdav/commit/425b9ccfe4764ba6512d4468c7e3b54b73597cd3)), closes [#238](https://github.com/nzbdav/nzbdav/issues/238)
+* **webdav:** stream and order large directory listings ([478a243](https://github.com/nzbdav/nzbdav/commit/478a2435d76afdd94adfdaf98fa3711da7261991))
+
 ## [0.7.17](https://github.com/nzbdav/nzbdav/compare/v0.7.16...v0.7.17) (2026-07-14)
 
 
