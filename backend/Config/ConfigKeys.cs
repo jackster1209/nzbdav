@@ -50,6 +50,7 @@ public static class ConfigKeys
     public const string WebdavPreviewPar2Files = "webdav.preview-par2-files";
     public const string WebdavShowHiddenFiles = "webdav.show-hidden-files";
     public const string WebdavUser = "webdav.user";
+    public const string WebdavWindowsSafePaths = "webdav.windows-safe-paths";
 
     // media / repair / arr
     public const string MediaLibraryDir = "media.library-dir";

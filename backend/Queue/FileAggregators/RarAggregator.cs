@@ -30,12 +30,12 @@ public class RarAggregator(DavDatabaseClient dbClient, DavItem mountDirectory, b
     {
         var pathInArchive = result.PathInArchive;
         var parentDirectory = EnsureParentDirectory(pathInArchive);
-        var name = Path.GetFileName(pathInArchive);
+        var name = SanitizeDavName(Path.GetFileName(pathInArchive));
 
         // Mirror the eager path's obfuscation rename: when the archive
         // contains a single obfuscated file, name it after the mount folder.
         if (ObfuscationUtil.IsProbablyObfuscated(name))
-            name = mountDirectory.Name + Path.GetExtension(name);
+            name = SanitizeDavName(mountDirectory.Name + Path.GetExtension(name));
 
         var davMultipartFile = new DavMultipartFile
         {
@@ -93,12 +93,12 @@ public class RarAggregator(DavDatabaseClient dbClient, DavItem mountDirectory, b
             var aesParams = fileParts.Select(x => x.AesParams).FirstOrDefault(x => x != null);
             var fileSize = aesParams?.DecodedSize ?? fileParts.Sum(x => x.ByteRangeWithinPart.Count);
             var parentDirectory = EnsureParentDirectory(pathWithinArchive);
-            var name = Path.GetFileName(pathWithinArchive);
+            var name = SanitizeDavName(Path.GetFileName(pathWithinArchive));
 
             // If there is only one file in the archive and the file-name is obfuscated,
             // then rename the file to the same name as the containing mount directory.
             if (archiveFiles.Count == 1 && ObfuscationUtil.IsProbablyObfuscated(name))
-                name = mountDirectory.Name + Path.GetExtension(name);
+                name = SanitizeDavName(mountDirectory.Name + Path.GetExtension(name));
 
             var davMultipartFile = new DavMultipartFile()
             {

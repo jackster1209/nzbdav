@@ -241,6 +241,22 @@ export function WebdavSettings({ config, setNewConfig }: SabnzbdSettingsProps) {
                     When enabled, par2 files will be rendered as text files on the Dav Explorer page, displaying all File-Descriptor entries.
                 </p>
             </div>
+            <hr />
+            <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                    <Checkbox
+                        id="windows-safe-paths-checkbox"
+                        aria-describedby="windows-safe-paths-help"
+                        checked={config["webdav.windows-safe-paths"] !== "false"}
+                        onChange={e => setNewConfig({ ...config, "webdav.windows-safe-paths": String(e.target.checked) })} />
+                    <span>Sanitize paths for Windows</span>
+                </label>
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="windows-safe-paths-help">
+                    Replace characters that are invalid on Windows (<code>{`<>:"/\\|?*`}</code>), trim trailing
+                    dots/spaces, and prefix reserved device names. Recommended when using Windows WebDAV
+                    clients or rclone on Windows. Applies to newly mounted content only.
+                </p>
+            </div>
         </SettingsPage>
     );
 }
@@ -258,6 +274,7 @@ export function isWebdavSettingsUpdated(config: Record<string, string>, newConfi
         || config["webdav.show-hidden-files"] !== newConfig["webdav.show-hidden-files"]
         || config["webdav.enforce-readonly"] !== newConfig["webdav.enforce-readonly"]
         || config["webdav.preview-par2-files"] !== newConfig["webdav.preview-par2-files"]
+        || config["webdav.windows-safe-paths"] !== newConfig["webdav.windows-safe-paths"]
         || config["usenet.segment-cache.enabled"] !== newConfig["usenet.segment-cache.enabled"]
         || config["usenet.segment-cache.path"] !== newConfig["usenet.segment-cache.path"]
         || config["usenet.segment-cache.max-gb"] !== newConfig["usenet.segment-cache.max-gb"]
