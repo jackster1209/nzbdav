@@ -88,7 +88,7 @@ function ReadRow({ item }: { item: Read }) {
                 {item.providers.length === 0
                     ? <span className="italic text-base-content/40">buffering…</span>
                     : item.providers.map((p, i) => (
-                        <span key={p.host} className="inline-flex items-baseline gap-1">
+                        <span key={`${p.host}-${i}`} className="inline-flex items-baseline gap-1">
                             {i > 0 && <span className="text-base-content/30">·</span>}
                             <span className="text-base-content/70" title={p.host}>{p.nickname?.trim() || stripHost(p.host)}</span>
                             {totalSegments > 0 && (

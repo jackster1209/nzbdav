@@ -175,7 +175,7 @@ export function ProvidersBadge({ providers }: { providers: ProviderUsage[] }) {
     return (
         <span className="badge badge-dash badge-ghost badge-sm inline-flex max-w-full min-w-0 cursor-help items-baseline gap-1 overflow-hidden max-[899px]:max-w-full" title={tooltip}>
             {visible.map((p, i) => (
-                <span key={p.host} className="inline-flex min-w-0 shrink items-baseline overflow-hidden">
+                <span key={`${p.host}-${i}`} className="inline-flex min-w-0 shrink items-baseline overflow-hidden">
                     {i > 0 && <span className="text-base-content/20 mx-0.5 shrink-0">·</span>}
                     <span className="truncate">{labelOf(p)}</span>
                     {total > 0 && (

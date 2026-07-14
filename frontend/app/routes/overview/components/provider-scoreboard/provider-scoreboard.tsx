@@ -40,7 +40,7 @@ export function ProviderScoreboard({ providers, window }: ProviderScoreboardProp
                             return (
                                 <tr key={p.provider}>
                                     <td>
-                                        <div className={styles.providerCell} title={p.provider}>
+                                        <div className={styles.providerCell} title={p.nickname?.trim() || p.provider}>
                                             <span className={styles.dot} />
                                             <span className={styles.providerName}>{p.nickname?.trim() || p.provider}</span>
                                         </div>

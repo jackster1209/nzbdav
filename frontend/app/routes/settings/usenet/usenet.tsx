@@ -199,6 +199,20 @@ function providerKey(p: ConnectionDetails): string {
     return `${p.Host}::${p.Port}::${p.User}`;
 }
 
+// crypto.randomUUID requires a secure context, but self-hosted UIs are often
+// served over plain http on a LAN; fall back to a manual v4 from getRandomValues.
+function generateProviderId(): string {
+    if (typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+    }
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 type DragBits = {
     setNodeRef: (node: HTMLElement | null) => void;
     setActivatorNodeRef: (node: HTMLElement | null) => void;
@@ -304,7 +318,7 @@ export function UsenetSettings({ config, setNewConfig }: UsenetSettingsProps) {
         } else {
             providers.push({
                 ...provider,
-                ProviderId: provider.ProviderId || crypto.randomUUID(),
+                ProviderId: provider.ProviderId || generateProviderId(),
                 Priority: providers.length,
             });
         }

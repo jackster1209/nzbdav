@@ -106,7 +106,7 @@ export function LiveReadsPanel() {
                                         const label = p.nickname?.trim() || p.host;
                                         return (
                                             <span
-                                                key={p.host}
+                                                key={`${p.host}-${i}`}
                                                 className={`${styles.providerChip} ${i === 0 ? styles.providerChipPrimary : ""}`}
                                                 title={`${label} (${p.host}): ${p.segments} segments`}
                                             >

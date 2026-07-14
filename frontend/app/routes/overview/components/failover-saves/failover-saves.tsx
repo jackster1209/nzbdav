@@ -153,7 +153,7 @@ export function FailoverSaves({ failover, window }: FailoverSavesProps) {
                                     const width = (p.misses / maxMisses) * 100;
                                     const share = segmentsCovered > 0 ? (p.misses / segmentsCovered) * 100 : 0;
                                     return (
-                                        <div key={p.provider} className={styles.row} title={p.provider}>
+                                        <div key={p.provider} className={styles.row} title={p.nickname?.trim() || p.provider}>
                                             <span className={styles.name}>{p.nickname?.trim() || p.provider}</span>
                                             <span className={styles.barTrack}>
                                                 <span className={`${styles.barFill} ${styles.barFillBad}`} style={{ width: `${width.toFixed(1)}%` }} />
@@ -178,7 +178,7 @@ export function FailoverSaves({ failover, window }: FailoverSavesProps) {
                                     const width = (p.saves / maxSaves) * 100;
                                     const share = articlesRecovered > 0 ? (p.saves / articlesRecovered) * 100 : 0;
                                     return (
-                                        <div key={p.provider} className={styles.row} title={p.provider}>
+                                        <div key={p.provider} className={styles.row} title={p.nickname?.trim() || p.provider}>
                                             <span className={styles.name}>{p.nickname?.trim() || p.provider}</span>
                                             <span className={styles.barTrack}>
                                                 <span className={styles.barFill} style={{ width: `${width.toFixed(1)}%` }} />
