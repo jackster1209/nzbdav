@@ -51,13 +51,27 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 
-/** Only re-fetch layout config after settings/onboarding mutations. */
+/** True for pages the root loader renders without the app layout. */
+function isLayoutlessPath(pathname: string): boolean {
+  const path = pathname.replace(/\.data$/, "");
+  return path === "/login" || path === "/onboarding";
+}
+
+/**
+ * Skip root config re-fetches for routine mutations (queue deletes, toggles),
+ * but always revalidate when crossing the login/onboarding layout boundary
+ * (login/logout redirects change `useLayout`) and after settings/onboarding
+ * saves (which can change providers/watchdog config).
+ */
 export function shouldRevalidate({
   currentUrl,
   nextUrl,
   formMethod,
   defaultShouldRevalidate,
 }: ShouldRevalidateFunctionArgs) {
+  if (isLayoutlessPath(currentUrl.pathname) !== isLayoutlessPath(nextUrl.pathname)) {
+    return true;
+  }
   if (formMethod && formMethod !== "GET") {
     const fromSettingsOrOnboarding =
       currentUrl.pathname.startsWith("/settings")
