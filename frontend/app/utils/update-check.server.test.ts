@@ -180,10 +180,11 @@ describe("checkForUpdate", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("never hits the compare endpoint for release versions", async () => {
+  it("never hits the compare endpoint when a newer release exists", async () => {
     getBuildCommitMock.mockResolvedValue({
       sha: "abc1234",
       branch: "main",
+      source: "git",
     });
     fetchMock.mockResolvedValueOnce(
       jsonResponse({
@@ -198,13 +199,65 @@ describe("checkForUpdate", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/releases/latest");
   });
+
+  it("returns commits behind for an up-to-date source checkout on main", async () => {
+    const buildSha = "abcdef0123456789abcdef0123456789abcdef01";
+    getBuildCommitMock.mockResolvedValue({
+      sha: buildSha,
+      branch: "main",
+      source: "git",
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          tag_name: "v0.7.5",
+          html_url: "https://github.com/nzbdav/nzbdav/releases/tag/v0.7.5",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: "ahead",
+          ahead_by: 2,
+          html_url: `https://github.com/nzbdav/nzbdav/compare/${buildSha}...main`,
+        }),
+      );
+
+    await expect(checkForUpdate("0.7.5")).resolves.toEqual({
+      kind: "dev",
+      commitsBehind: 2,
+      compareUrl: `https://github.com/nzbdav/nzbdav/compare/${buildSha}...main`,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not compare release images against unreleased main commits", async () => {
+    getBuildCommitMock.mockResolvedValue({
+      sha: "abcdef0123456789abcdef0123456789abcdef01",
+      branch: "main",
+      source: "env",
+    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        tag_name: "v0.7.5",
+        html_url: "https://github.com/nzbdav/nzbdav/releases/tag/v0.7.5",
+      }),
+    );
+
+    await expect(checkForUpdate("0.7.5")).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/releases/latest");
+  });
 });
 
 describe("checkForUpdate (dev builds)", () => {
   const buildSha = "abcdef0123456789abcdef0123456789abcdef01";
 
   beforeEach(() => {
-    getBuildCommitMock.mockResolvedValue({ sha: buildSha, branch: "main" });
+    getBuildCommitMock.mockResolvedValue({
+      sha: buildSha,
+      branch: "main",
+      source: "env",
+    });
   });
 
   it("returns commits behind when main is ahead", async () => {

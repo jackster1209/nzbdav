@@ -217,9 +217,10 @@ async function checkForReleaseUpdate(
   };
 }
 
-async function checkForDevUpdate(): Promise<DevUpdateAvailable | null> {
+async function checkForDevUpdate(localGitOnly = false): Promise<DevUpdateAvailable | null> {
   const build = await getBuildCommit();
   if (!build) return null;
+  if (localGitOnly && build.source !== "git") return null;
 
   const compare = await getCachedCompare(build);
   if (!compare || compare.commitsBehind <= 0) return null;
@@ -240,7 +241,14 @@ export async function checkForUpdate(
   currentVersion: string | undefined | null,
 ): Promise<UpdateAvailable | null> {
   if (isComparableVersion(currentVersion)) {
-    return checkForReleaseUpdate(currentVersion);
+    const releaseUpdate = await checkForReleaseUpdate(currentVersion);
+    if (releaseUpdate) return releaseUpdate;
+
+    // A source checkout still reads the latest released version from
+    // version.txt. If its local main commit is stale, compare it with GitHub
+    // after confirming there is no newer release. Release Docker images use
+    // the env-provided SHA and intentionally remain release-only.
+    return checkForDevUpdate(true);
   }
 
   return checkForDevUpdate();

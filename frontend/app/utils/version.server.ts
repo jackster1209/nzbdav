@@ -7,6 +7,7 @@ const gitDirPath = resolve(process.cwd(), "..", ".git");
 export type BuildCommit = {
   sha: string;
   branch: string;
+  source: "env" | "git";
 };
 
 export async function getAppVersion(): Promise<string | undefined> {
@@ -36,7 +37,7 @@ export async function getBuildCommit(
 ): Promise<BuildCommit | undefined> {
   const envSha = process.env.NZBDAV_COMMIT_SHA?.trim();
   if (envSha && isValidSha(envSha)) {
-    return { sha: envSha.toLowerCase(), branch: "main" };
+    return { sha: envSha.toLowerCase(), branch: "main", source: "env" };
   }
 
   return readLocalMainCommit(gitDir);
@@ -59,7 +60,7 @@ async function readLocalMainCommit(gitDir: string): Promise<BuildCommit | undefi
     const sha = await resolveGitRef(gitDir, ref);
     if (!sha) return undefined;
 
-    return { sha, branch: "main" };
+    return { sha, branch: "main", source: "git" };
   } catch {
     return undefined;
   }

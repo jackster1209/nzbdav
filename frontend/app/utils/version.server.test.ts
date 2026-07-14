@@ -35,6 +35,7 @@ describe("getBuildCommit", () => {
     await expect(getBuildCommit(tempGitDir)).resolves.toEqual({
       sha: "abcdef0123456789abcdef0123456789abcdef01",
       branch: "main",
+      source: "env",
     });
   });
 
@@ -54,6 +55,7 @@ describe("getBuildCommit", () => {
     await expect(getBuildCommit(tempGitDir)).resolves.toEqual({
       sha: "abcdef0123456789abcdef0123456789abcdef01",
       branch: "main",
+      source: "git",
     });
   });
 
@@ -72,6 +74,7 @@ describe("getBuildCommit", () => {
     await expect(getBuildCommit(tempGitDir)).resolves.toEqual({
       sha: "abcdef0123456789abcdef0123456789abcdef01",
       branch: "main",
+      source: "git",
     });
   });
 
