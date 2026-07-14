@@ -17,3 +17,9 @@ BenchmarkDotNet.Artifacts/
 
 .idea/
 .vscode/
+
+########
+# macOS #
+########
+
+.DS_Store
