@@ -197,10 +197,13 @@ public class ExceptionMiddleware(RequestDelegate next, ConfigManager configManag
 
     private void ScheduleRepair(Guid davItemId)
     {
-        failureTracker.RecordFailure(davItemId);
-
         if (!configManager.IsRepairJobEnabled())
             return;
+
+        // Track every distinct streaming failure (not deduped by RepairDedupeWindow below) so the
+        // optional repair.auto-remove-after-failures policy in HealthCheckService can see how many
+        // times playback has actually failed against this item.
+        failureTracker.RecordFailure(davItemId);
 
         var now = DateTime.UtcNow;
         var isDuplicate = false;

@@ -1013,7 +1013,7 @@ public class ConfigManager
     /// items still go through *Arr remove-and-search. When false, linked items are force-deleted
     /// after the failure threshold as well.
     /// </summary>
-    public bool GetAutoRemoveUnlinkedOnly()
+    public bool IsAutoRemoveUnlinkedOnly()
     {
         var configValue = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.RepairAutoRemoveUnlinkedOnly));
         return configValue == null || bool.Parse(configValue);

@@ -180,7 +180,7 @@ public class HealthCheckService : BackgroundService
             var utcNow = DateTimeOffset.UtcNow;
             davItem.LastHealthCheck = utcNow;
             davItem.NextHealthCheck = ComputeNextHealthCheck(davItem.ReleaseDate, utcNow);
-            _failureTracker.Clear(davItem.Id);
+            _failureTracker.ClearFailure(davItem.Id);
             var healthyMessage = sampled.Count < totalSegments
                 ? $"File is healthy (sampled {sampled.Count}/{totalSegments} segments)."
                 : "File is healthy.";
@@ -344,8 +344,8 @@ public class HealthCheckService : BackgroundService
     private async Task HandleUrgentRepair(DavItem davItem, DavDatabaseClient dbClient, CancellationToken ct)
     {
         var threshold = _configManager.GetAutoRemoveAfterFailures();
-        var failureCount = _failureTracker.GetCount(davItem.Id);
-        var unlinkedOnly = _configManager.GetAutoRemoveUnlinkedOnly();
+        var failureCount = _failureTracker.GetFailureCount(davItem.Id);
+        var unlinkedOnly = _configManager.IsAutoRemoveUnlinkedOnly();
         var hasLibraryLink = OrganizedLinksUtil.GetLink(davItem, _configManager) != null;
         var disposition = GetUrgentRepairDisposition(threshold, failureCount, hasLibraryLink, unlinkedOnly);
 
@@ -389,7 +389,7 @@ public class HealthCheckService : BackgroundService
             if (BlocklistedFilePostProcessor.MatchesAnyPattern(davItem.Name, blocklistedFiles))
             {
                 dbClient.Ctx.Items.Remove(davItem);
-                _failureTracker.Clear(davItem.Id);
+                _failureTracker.ClearFailure(davItem.Id);
                 await RecordHealthResult(
                     dbClient, davItem,
                     HealthCheckResult.HealthResult.Unhealthy,
@@ -411,7 +411,7 @@ public class HealthCheckService : BackgroundService
                     await Task.Run(() => File.Delete(symlinkOrStrmPath)).ConfigureAwait(false);
 
                 dbClient.Ctx.Items.Remove(davItem);
-                _failureTracker.Clear(davItem.Id);
+                _failureTracker.ClearFailure(davItem.Id);
 
                 var failureNote = streamingFailureCount is > 0
                     ? $" Streaming failure count: {streamingFailureCount}."
@@ -503,7 +503,7 @@ public class HealthCheckService : BackgroundService
                 if (removedAndSearched)
                 {
                     dbClient.Ctx.Items.Remove(davItem);
-                    _failureTracker.Clear(davItem.Id);
+                    _failureTracker.ClearFailure(davItem.Id);
                     await RecordHealthResult(
                         dbClient, davItem,
                         HealthCheckResult.HealthResult.Unhealthy,
@@ -548,7 +548,7 @@ public class HealthCheckService : BackgroundService
             // then we can delete both the item and the link-file.
             await Task.Run(() => File.Delete(symlinkOrStrmPath)).ConfigureAwait(false);
             dbClient.Ctx.Items.Remove(davItem);
-            _failureTracker.Clear(davItem.Id);
+            _failureTracker.ClearFailure(davItem.Id);
             await RecordHealthResult(
                 dbClient, davItem,
                 HealthCheckResult.HealthResult.Unhealthy,

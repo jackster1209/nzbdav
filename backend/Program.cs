@@ -152,6 +152,7 @@ class Program
                 .AddSingleton<ProviderUsageTracker>(sp =>
                     new ProviderUsageTracker(sp.GetRequiredService<ActiveReadRegistry>()))
                 .AddSingleton<QueueItemSourceTracker>()
+                .AddSingleton<StreamingFailureTracker>()
                 .AddSingleton<UsenetStreamingClient>()
                 // LazyRarResolver takes INntpClient (for testability) but must
                 // use the shared streaming client; wire it explicitly instead
@@ -176,7 +177,6 @@ class Program
                 .AddSingleton<SearchExcludeSyncService>()
                 .AddHostedService(sp => sp.GetRequiredService<SearchExcludeSyncService>())
                 .AddSingleton<PlaybackFastVerifier>()
-                .AddSingleton<StreamingFailureTracker>()
                 .AddSingleton<WatchdogLog>()
                 .AddSingleton<PreflightCache>()
                 .AddSingleton<PreflightSessionRegistry>()
