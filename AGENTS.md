@@ -230,6 +230,17 @@ Prefer this rhythm:
 
 Do not accumulate a large uncommitted diff across unrelated areas.
 
+## After completing a task
+
+When a task that changed the repo is done (unless the user explicitly said not to commit, push, or open a PR):
+
+1. **Commit** any remaining changes using Conventional Commits (see above).
+2. **Push a new branch** — never commit or push to `main`. Name it `<type>/<short-kebab-description>` (e.g. `fix/db-startup-guards`, `chore/agents-post-task`).
+3. **Open a PR** to `main` with `gh pr create` (short summary + test plan). Report the PR URL in the final response.
+4. **Reset the workspace** for the next agent: `git checkout main` && `git pull`, then confirm a clean working tree on `main`.
+
+Skip this handoff if there are no local changes and nothing to push or PR. Do not force-push, amend pushed commits, or leave uncommitted work behind when switching to `main` (commit it onto the PR branch first).
+
 ## CI/CD
 
 | Workflow | Trigger | Purpose |
