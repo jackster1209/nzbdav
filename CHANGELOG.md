@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.7.17](https://github.com/nzbdav/nzbdav/compare/v0.7.16...v0.7.17) (2026-07-14)
+
+
+### Bug Fixes
+
+* **auth:** harden frontend session key and cookie settings ([d1833b4](https://github.com/nzbdav/nzbdav/commit/d1833b4c5cd410e7efe4f24834a30a1eb0f702f8)), closes [#219](https://github.com/nzbdav/nzbdav/issues/219)
+* **db:** delete DavItems batches by stored Id text to survive casing mismatch ([e89e920](https://github.com/nzbdav/nzbdav/commit/e89e920775d5d04f12d0b516a5ce458ce2dc7e9e))
+* **db:** don't read ConfigItems before migrations on fresh databases ([e89426a](https://github.com/nzbdav/nzbdav/commit/e89426ac670571181988e66ca092a4e4e6e116f6))
+* **db:** drain seeded empty dirs before asserting zero removals ([ffb36af](https://github.com/nzbdav/nzbdav/commit/ffb36af5044ebd6f6a1a04608e17886c38c946b3))
+* **deps:** bump react-router packages to 8.2.0 ([bff957d](https://github.com/nzbdav/nzbdav/commit/bff957da77939f285e2a039b493d772f144e7cf1))
+* fresh-database startup crash and Remove Orphaned Files stuck in Running ([5cad058](https://github.com/nzbdav/nzbdav/commit/5cad058284ef15faecbc73d13cdfee156d27cd9a))
+* **nntp:** log known transport failures without stack dumps ([ba80566](https://github.com/nzbdav/nzbdav/commit/ba805662d2308a5f5c8779cda1f373c71f3df3b5))
+* **nntp:** log known transport failures without stack dumps ([47930e2](https://github.com/nzbdav/nzbdav/commit/47930e2d705980afbad2f350deff996498b8b816))
+* **nntp:** route pipelined queue fetches through per-segment failover ([884b0d0](https://github.com/nzbdav/nzbdav/commit/884b0d06b6f98d436de648405c3ffa52e65c7c59))
+* **nntp:** route pipelined queue fetches through per-segment failover ([0b3a566](https://github.com/nzbdav/nzbdav/commit/0b3a5660fb1b04f9d79a8c7c5a3812f0dfb2c808))
+* **nntp:** stop invalid segment-id loops with 404 + repair ([0c89f9c](https://github.com/nzbdav/nzbdav/commit/0c89f9cf55689cd869100c998b10dd3c02075c47))
+* **nntp:** stop invalid segment-id loops with 404 + repair ([4d6d5f2](https://github.com/nzbdav/nzbdav/commit/4d6d5f240c112c405104ccbe9ea7b1b76990dde2))
+* **queue:** resolve metrics keys to hosts in live provider websocket ([4f27658](https://github.com/nzbdav/nzbdav/commit/4f27658e6bd9c0f8593395711e72d254b0880993))
+* RemoveUnlinkedFilesTask CI failures (Guid casing + dash pipefail) ([db3abd8](https://github.com/nzbdav/nzbdav/commit/db3abd810ad1e3f5dabce8678aeb16ecce0c42a6))
+* SSR build ignoring custom server entry under Vite 8 ([81877c4](https://github.com/nzbdav/nzbdav/commit/81877c4319de7bb7c442d6356cdd5e1a0f82210b))
+* **ui:** add .js extension to proxy-path import for Node ESM ([83d5612](https://github.com/nzbdav/nzbdav/commit/83d56122a4414be7a0d7d56f00e42f7cbdaafca9))
+* **ui:** add frontend websocket hub heartbeat ([96766da](https://github.com/nzbdav/nzbdav/commit/96766dad75986ae99c1ca57397f0e659248ce9cd)), closes [#225](https://github.com/nzbdav/nzbdav/issues/225)
+* **ui:** add security response headers for admin UI ([a42292a](https://github.com/nzbdav/nzbdav/commit/a42292a7cbfa728ee59dde52ae8cf76adb602c1f)), closes [#215](https://github.com/nzbdav/nzbdav/issues/215)
+* **ui:** allow editing provider Already Used offset ([cce1b92](https://github.com/nzbdav/nzbdav/commit/cce1b920252ba0ac3807c63b77ef867e0a4f780d)), closes [#256](https://github.com/nzbdav/nzbdav/issues/256)
+* **ui:** bound frontend websocket subscriptions and payload ([247c60d](https://github.com/nzbdav/nzbdav/commit/247c60de6fa6e5f235c1d9ee6ed37e4a33fa06b2)), closes [#220](https://github.com/nzbdav/nzbdav/issues/220)
+* **ui:** derive Remove Orphaned Files running state from user-initiated runs ([9aa543a](https://github.com/nzbdav/nzbdav/commit/9aa543aa586a200c2c9fed6dd2c8147051f456af))
+* **ui:** disable Link prefetch on explore directory links ([abc48f7](https://github.com/nzbdav/nzbdav/commit/abc48f7e42838a9e031f0751d675e653cef9b794)), closes [#135](https://github.com/nzbdav/nzbdav/issues/135)
+* **ui:** disable X-Powered-By on SSR sub-app ([b8fdc9a](https://github.com/nzbdav/nzbdav/commit/b8fdc9ad5bf69fbcb1d8ad3553d95723a8511d5b)), closes [#221](https://github.com/nzbdav/nzbdav/issues/221)
+* **ui:** frontend audit and UX batch ([9ecc16e](https://github.com/nzbdav/nzbdav/commit/9ecc16e05d430c0af7ce2eecc6b78e4ba982acb4))
+* **ui:** harden provider id generation and duplicate-host rendering ([2547e67](https://github.com/nzbdav/nzbdav/commit/2547e672f4517eeba8a6c4c94115fb3d034974d5))
+* **ui:** omit NZB file accept filter on iOS ([09970d4](https://github.com/nzbdav/nzbdav/commit/09970d4d5671c3145a0fc034836c3c7e6ce48494)), closes [#140](https://github.com/nzbdav/nzbdav/issues/140)
+* **ui:** quiet expected BackendUnavailableError noise during startup grace ([86da280](https://github.com/nzbdav/nzbdav/commit/86da2804d9a95250f1857479d835aed61cd7822d))
+* **ui:** quiet expected BackendUnavailableError noise during startup grace ([5865305](https://github.com/nzbdav/nzbdav/commit/5865305854f7b8b3fb4aed22e74ea499200fc68d))
+* **ui:** resolve frontend startup crash from extensionless proxy-path import ([6eaf10d](https://github.com/nzbdav/nzbdav/commit/6eaf10d84d920c43a7c1ba347d99478e92ac6ed6))
+* **ui:** revalidate root loader when crossing login layout boundary ([b85f6c8](https://github.com/nzbdav/nzbdav/commit/b85f6c8263924f9f9bfdcb52c5308890c9cccf4a)), closes [#226](https://github.com/nzbdav/nzbdav/issues/226)
+* **ui:** self-host Inter and drop Google Fonts CDN ([0ad667c](https://github.com/nzbdav/nzbdav/commit/0ad667ce4bfab295693b84522dd9d04a770f84a0)), closes [#222](https://github.com/nzbdav/nzbdav/issues/222)
+* **ui:** share one multiplexed WebSocket per browser tab ([57bc4a8](https://github.com/nzbdav/nzbdav/commit/57bc4a877819729a2956ef153eae5d35bc31f215)), closes [#224](https://github.com/nzbdav/nzbdav/issues/224)
+* **ui:** skip root config revalidation on routine mutations ([9b8c257](https://github.com/nzbdav/nzbdav/commit/9b8c257996204cf80ab462af60ae9fb65769fb6f)), closes [#226](https://github.com/nzbdav/nzbdav/issues/226)
+* **ui:** strip iOS accept attribute after mount to avoid hydration mismatch ([5be48a5](https://github.com/nzbdav/nzbdav/commit/5be48a5f9ff48937b8f1d138af6fbbf4d4a3814c)), closes [#140](https://github.com/nzbdav/nzbdav/issues/140)
+* **ui:** use discover=none instead of prefetch=none on explore links ([eb54c8a](https://github.com/nzbdav/nzbdav/commit/eb54c8a475405abf51d6ae7c1458b102162d917c)), closes [#135](https://github.com/nzbdav/nzbdav/issues/135)
+* **usenet:** key provider usage metrics by ProviderId ([192a047](https://github.com/nzbdav/nzbdav/commit/192a047c7a61133200062a5d336588e08dcf8731))
+* **usenet:** key provider usage metrics by ProviderId ([f6f20b3](https://github.com/nzbdav/nzbdav/commit/f6f20b37f4f0c3b00631b4ecaebd0bed89eaee2a))
+* **webdav:** dequeue dav cleanup items with lowercase guid ids ([92f5ca6](https://github.com/nzbdav/nzbdav/commit/92f5ca61fe0836b166de34916515cd31655a2c71))
+* **webdav:** drop pipefail dependency from Linux library scan ([5ef3490](https://github.com/nzbdav/nzbdav/commit/5ef3490bbb80f9037d9228581c6dec4a8f313d9a))
+* **webdav:** guarantee RemoveUnlinkedFiles terminates and reject concurrent runs ([064e70b](https://github.com/nzbdav/nzbdav/commit/064e70b1e016fd27d05928d82b3a77de46b7e269))
+* **webdav:** handle lowercase GUIDs in DAV cleanup queue ([a2eea70](https://github.com/nzbdav/nzbdav/commit/a2eea70427be42ab93176b8c232b2e60296d56ba))
+
 ## [0.7.16](https://github.com/nzbdav/nzbdav/compare/v0.7.15...v0.7.16) (2026-07-13)
 
 
