@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import {
     disconnectBrowserClients,
+    MAX_CLIENT_BUFFERED_AMOUNT,
     MAX_TOPICS_PER_SOCKET,
     parseSubscriptionTopics,
+    sendToBrowserClient,
 } from "./websocket.server";
 
 describe("parseSubscriptionTopics", () => {
@@ -27,6 +29,32 @@ describe("parseSubscriptionTopics", () => {
             topics[`t${i}`] = "state";
         }
         expect(parseSubscriptionTopics(JSON.stringify(topics))).toBeNull();
+    });
+});
+
+describe("sendToBrowserClient", () => {
+    it("skips sends when the client buffer is too full", () => {
+        const send = vi.fn();
+        const client = {
+            readyState: WebSocket.OPEN,
+            bufferedAmount: MAX_CLIENT_BUFFERED_AMOUNT + 1,
+            send,
+        } as unknown as WebSocket;
+
+        sendToBrowserClient(client, "msg");
+        expect(send).not.toHaveBeenCalled();
+    });
+
+    it("sends when the client is open and not back-pressured", () => {
+        const send = vi.fn();
+        const client = {
+            readyState: WebSocket.OPEN,
+            bufferedAmount: 0,
+            send,
+        } as unknown as WebSocket;
+
+        sendToBrowserClient(client, "msg");
+        expect(send).toHaveBeenCalledWith("msg");
     });
 });
 
