@@ -134,7 +134,7 @@ public static class FetchFirstSegmentsStep
         {
             // Transient provider errors must not be treated as permanent missing segments
             // (otherwise fail-fast would mark good NZBs failed — see nzbdav-dev#245).
-            Log.Warning(e,
+            e.LogWarningKnownOrStack(
                 "First segment for `{FileName}` unavailable due to provider error; not treating as permanently missing",
                 nzbFile.GetSubjectFileName());
             throw;

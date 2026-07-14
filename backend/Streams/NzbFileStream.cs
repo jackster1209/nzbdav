@@ -158,7 +158,7 @@ public class NzbFileStream(
                 }
                 catch (Exception e) when (articleBufferSize > 0 && !ct.IsCancellationRequested)
                 {
-                    Log.Warning(e,
+                    e.LogWarningKnownOrStack(
                         "Seek probe transient failure on segment index {Index}. Using estimated range.", guess);
                     var start = guess * avg;
                     var end = Math.Min(fileSize, start + avg);

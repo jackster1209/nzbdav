@@ -3,6 +3,7 @@ using NzbWebDAV.Clients.Usenet;
 using NzbWebDAV.Clients.Usenet.Contexts;
 using NzbWebDAV.Clients.Usenet.Models;
 using NzbWebDAV.Exceptions;
+using NzbWebDAV.Extensions;
 using Serilog;
 using UsenetSharp.Models;
 using UsenetSharp.Streams;
@@ -214,7 +215,7 @@ public class MultiSegmentStream : FastReadOnlyNonSeekableStream
             {
                 if (_failFastOnFirstSegment && isFirstSegment)
                 {
-                    Log.Warning(e,
+                    e.LogWarningKnownOrStack(
                         "First article {SegmentId} missing on all providers at playback start while reading {FileName}. " +
                         "Failing the stream so the player surfaces an error.",
                         segmentId, _fileName);
@@ -238,7 +239,7 @@ public class MultiSegmentStream : FastReadOnlyNonSeekableStream
 
                 if (_failFastOnFirstSegment && isFirstSegment)
                 {
-                    Log.Warning(e,
+                    e.LogWarningKnownOrStack(
                         "Segment {SegmentId} unavailable at playback start after {Attempts} attempts while reading {FileName}. " +
                         "Failing the stream so the player surfaces an error.",
                         segmentId, attempt + 1, _fileName);
@@ -294,8 +295,10 @@ public class MultiSegmentStream : FastReadOnlyNonSeekableStream
     private Stream ZeroFillSegment(string messageTemplate, string segmentId, Exception? exception = null)
     {
         var fill = _expectedSegmentSize > 0 ? _expectedSegmentSize : 1;
-        if (exception == null) Log.Warning(messageTemplate, segmentId, _fileName, fill);
-        else Log.Warning(exception, messageTemplate, segmentId, _fileName, fill);
+        if (exception == null)
+            Log.Warning(messageTemplate, segmentId, _fileName, fill);
+        else
+            exception.LogWarningKnownOrStack(messageTemplate, segmentId, _fileName, fill);
         return new MemoryStream(new byte[fill], writable: false);
     }
 

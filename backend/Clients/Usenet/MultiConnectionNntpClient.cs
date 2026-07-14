@@ -253,7 +253,7 @@ public class MultiConnectionNntpClient(
                     continue;
                 }
 
-                Log.Warning(e,
+                e.LogWarningKnownOrStack(
                     "Error executing pipelined NNTP BODY commands for provider {Provider}.",
                     providerName);
                 LogException(() => onConnectionReadyAgain?.Invoke(ArticleBodyResult.NotRetrieved));
@@ -313,7 +313,7 @@ public class MultiConnectionNntpClient(
                     continue;
                 }
 
-                Log.Warning(e, "Error getting connection-lock for provider {Provider}.", providerName);
+                e.LogWarningKnownOrStack("Error getting connection-lock for provider {Provider}.", providerName);
                 LogException(() => onConnectionReadyAgain?.Invoke(ArticleBodyResult.NotRetrieved));
                 throw;
             }
@@ -379,7 +379,8 @@ public class MultiConnectionNntpClient(
                     continue;
                 }
 
-                Log.Warning(e, "Error executing nntp {Command} command for provider {Provider}.", name, providerName);
+                e.LogWarningKnownOrStack(
+                    "Error executing nntp {Command} command for provider {Provider}.", name, providerName);
                 LogException(() => onConnectionReadyAgain?.Invoke(ArticleBodyResult.NotRetrieved));
                 throw;
             }

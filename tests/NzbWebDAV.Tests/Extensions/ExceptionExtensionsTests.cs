@@ -1,0 +1,67 @@
+using System.Net.Sockets;
+using NzbWebDAV.Exceptions;
+using NzbWebDAV.Extensions;
+
+namespace NzbWebDAV.Tests.Extensions;
+
+public class ExceptionExtensionsTests
+{
+    [Fact]
+    public void TryGetKnownErrorMessage_RecognizesDirectTimeout()
+    {
+        var ex = new TimeoutException("Timeout reading from NNTP stream.");
+
+        Assert.True(ex.TryGetKnownErrorMessage(out var reason));
+        Assert.Equal("Timeout reading from NNTP stream.", reason);
+    }
+
+    [Fact]
+    public void TryGetKnownErrorMessage_PrefersInnermostKnownMessage()
+    {
+        var inner = new TimeoutException("Timeout reading from NNTP stream.");
+        var outer = new Exception("wrapper", inner);
+
+        Assert.True(outer.TryGetKnownErrorMessage(out var reason));
+        Assert.Equal("Timeout reading from NNTP stream.", reason);
+    }
+
+    [Fact]
+    public void TryGetKnownErrorMessage_RecognizesUsenetUnexpectedResponse()
+    {
+        var ex = new UsenetUnexpectedResponseException("<seg@example>", "400 too much time between commands");
+
+        Assert.True(ex.TryGetKnownErrorMessage(out var reason));
+        Assert.Contains("Unexpected NNTP response", reason);
+        Assert.Contains("<seg@example>", reason);
+    }
+
+    [Fact]
+    public void TryGetKnownErrorMessage_RecognizesSocketAndIoErrors()
+    {
+        var socket = new SocketException((int)SocketError.ConnectionReset);
+        Assert.True(socket.TryGetKnownErrorMessage(out var socketReason));
+        Assert.False(string.IsNullOrWhiteSpace(socketReason));
+
+        var io = new IOException("Unable to read data from the transport connection.");
+        Assert.True(io.TryGetKnownErrorMessage(out var ioReason));
+        Assert.Equal("Unable to read data from the transport connection.", ioReason);
+    }
+
+    [Fact]
+    public void TryGetKnownErrorMessage_RejectsUnexpectedExceptions()
+    {
+        var ex = new NullReferenceException("unexpected bug");
+
+        Assert.False(ex.TryGetKnownErrorMessage(out var reason));
+        Assert.Equal(string.Empty, reason);
+    }
+
+    [Fact]
+    public void TryGetKnownErrorMessage_RecognizesArticleNotFound()
+    {
+        var ex = new UsenetArticleNotFoundException("<missing@example>");
+
+        Assert.True(ex.TryGetKnownErrorMessage(out var reason));
+        Assert.Contains("<missing@example>", reason);
+    }
+}
