@@ -461,7 +461,7 @@ public class GetOverviewStatsController(
         _ => OneHour,
     };
 
-    private static GetOverviewStatsResponse.FailoverBlock BuildFailover(
+    internal static GetOverviewStatsResponse.FailoverBlock BuildFailover(
         IEnumerable<(long At, string Provider, long Saves)> rescues,
         IEnumerable<(string From, SegmentFetch.FetchStatus Reason, long Count)> misses,
         long totalArticles,
@@ -486,7 +486,10 @@ public class GetOverviewStatsController(
             perProvider[provider] = c + saves;
         }
 
+        // Chart/list series only include currently configured providers; aggregate
+        // totals below still count rescues from deleted providers.
         var orderedProviders = totalsByProvider
+            .Where(kv => IsConfiguredMetricsKey(kv.Key, labelsByMetricsKey))
             .OrderByDescending(kv => kv.Value)
             .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
             .Select(kv => kv.Key)
@@ -526,6 +529,7 @@ public class GetOverviewStatsController(
                 })
                 .ToList(),
             RescuedFrom = missesByProvider
+                .Where(kv => IsConfiguredMetricsKey(kv.Key, labelsByMetricsKey))
                 .OrderByDescending(kv => kv.Value)
                 .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
                 .Select(kv => new GetOverviewStatsResponse.FailoverFrom
@@ -548,7 +552,10 @@ public class GetOverviewStatsController(
                 {
                     var counts = new long[orderedProviders.Count];
                     foreach (var (provider, c) in kv.Value)
-                        counts[indexOf[provider]] = c;
+                    {
+                        if (!indexOf.TryGetValue(provider, out var i)) continue;
+                        counts[i] = c;
+                    }
                     return new GetOverviewStatsResponse.FailoverBucket
                     {
                         Bucket = kv.Key,
@@ -558,6 +565,15 @@ public class GetOverviewStatsController(
                 .ToList(),
         };
     }
+
+    /// <summary>
+    /// Metrics keys present in the current config label map. Deleted providers leave
+    /// orphaned rollup rows; those must not appear as named overview rows (GUID fallback).
+    /// </summary>
+    internal static bool IsConfiguredMetricsKey(
+        string metricsKey,
+        IReadOnlyDictionary<string, string?> labelsByMetricsKey)
+        => labelsByMetricsKey.ContainsKey(metricsKey);
 
     private GetOverviewStatsResponse.LiveTiles BuildLiveTiles(long articlesLastMinute, long errorsLastMinute)
     {
@@ -636,7 +652,7 @@ public class GetOverviewStatsController(
             .ToList();
     }
 
-    private static List<GetOverviewStatsResponse.ProviderRow> BuildProvidersFromMinutes(
+    internal static List<GetOverviewStatsResponse.ProviderRow> BuildProvidersFromMinutes(
         IEnumerable<(long Minute, string Provider, long Articles, long BytesFetched, long Errors, long Retries, long SumDurationMs)> minutes,
         long windowStart,
         GetOverviewStatsRequest.OverviewWindow window,
@@ -666,6 +682,7 @@ public class GetOverviewStatsController(
         }
 
         return byProvider
+            .Where(kv => IsConfiguredMetricsKey(kv.Key, labelsByMetricsKey))
             .Select(kv => new GetOverviewStatsResponse.ProviderRow
             {
                 Provider = kv.Key,
@@ -711,6 +728,7 @@ public class GetOverviewStatsController(
         }
 
         return byProvider
+            .Where(kv => IsConfiguredMetricsKey(kv.Key, labelsByMetricsKey))
             .Select(kv => new GetOverviewStatsResponse.ProviderRow
             {
                 Provider = kv.Key,
