@@ -56,7 +56,6 @@ public class RemoveUnlinkedFilesTaskTests
         await using var harness = await TempDb.CreateAsync();
         var ctx = harness.Context;
         await SeedRootsAsync(ctx);
-        await FillSeededEmptyDirectoriesAsync(ctx);
         var file = DavItem.New(
             Guid.NewGuid(),
             DavItem.ContentFolder,
@@ -71,9 +70,16 @@ public class RemoveUnlinkedFilesTaskTests
         ctx.Items.Add(file);
         await ctx.SaveChangesAsync();
 
+        // Drain migration-seeded empty category folders (e.g. /content/uncategorized
+        // from Fix-Empty-Categories). Filling them via EF fails: ParentId is stored
+        // uppercase while the seeded folder Id is lowercase, so raw SQL still sees
+        // the folder as empty.
+        var createdBefore = DateTime.Now.AddMinutes(1);
+        await RemoveUnlinkedFilesTask.RemoveEmptyDirectoriesAsync(ctx, createdBefore);
+
         var removed = await RemoveUnlinkedFilesTask.RemoveEmptyDirectoriesAsync(
             ctx,
-            DateTime.Now.AddMinutes(1));
+            createdBefore);
 
         Assert.Equal(0, removed);
         Assert.True(await ctx.Items.AnyAsync(x => x.Id == file.Id));
@@ -200,35 +206,6 @@ public class RemoveUnlinkedFilesTaskTests
             ctx.Items.Add(DavItem.Root);
         if (!await ctx.Items.AnyAsync(x => x.Id == DavItem.ContentFolder.Id))
             ctx.Items.Add(DavItem.ContentFolder);
-        await ctx.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Migrations seed an empty category folder (e.g. /content/uncategorized), which the
-    /// task legitimately removes. Give each such folder a child so "no empty directories"
-    /// scenarios actually start with none.
-    /// </summary>
-    private static async Task FillSeededEmptyDirectoriesAsync(DavDatabaseContext ctx)
-    {
-        var emptyDirs = await ctx.Items
-            .Where(d => d.SubType == DavItem.ItemSubType.Directory
-                        && !ctx.Items.Any(c => c.ParentId == d.Id))
-            .ToListAsync();
-        foreach (var dir in emptyDirs)
-        {
-            ctx.Items.Add(DavItem.New(
-                Guid.NewGuid(),
-                dir,
-                "placeholder.mkv",
-                10,
-                DavItem.ItemType.UsenetFile,
-                DavItem.ItemSubType.NzbFile,
-                null,
-                null,
-                null,
-                null));
-        }
-
         await ctx.SaveChangesAsync();
     }
 
