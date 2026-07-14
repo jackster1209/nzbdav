@@ -8,6 +8,7 @@ import {
   useLocation,
   useNavigation,
   useRouteError,
+  type ShouldRevalidateFunctionArgs,
 } from "react-router";
 
 import "./app.css";
@@ -48,6 +49,25 @@ export async function loader({ request }: Route.LoaderArgs) {
     isWatchdogEnabled:
       config.find(item => item.configName === "play.watchdog-enabled")?.configValue?.toLowerCase() !== "false",
   };
+}
+
+/** Only re-fetch layout config after settings/onboarding mutations. */
+export function shouldRevalidate({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+  if (formMethod && formMethod !== "GET") {
+    const fromSettingsOrOnboarding =
+      currentUrl.pathname.startsWith("/settings")
+      || currentUrl.pathname.startsWith("/onboarding");
+    const toSettingsOrOnboarding =
+      nextUrl.pathname.startsWith("/settings")
+      || nextUrl.pathname.startsWith("/onboarding");
+    return fromSettingsOrOnboarding || toSettingsOrOnboarding;
+  }
+  return defaultShouldRevalidate;
 }
 
 function hasConfiguredUsenetProviders(configValue?: string): boolean {
