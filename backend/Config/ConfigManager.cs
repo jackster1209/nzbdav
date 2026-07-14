@@ -207,6 +207,7 @@ public class ConfigManager
                 case ConfigKeys.ApiIgnoreHistoryLimit:
                 case ConfigKeys.ApiLazyRarParsing:
                 case ConfigKeys.ApiNzbBackupEnabled:
+                case ConfigKeys.ApiSkipNonVideoOnMissingArticles:
                 case ConfigKeys.WebdavShowHiddenFiles:
                 case ConfigKeys.WebdavEnforceReadonly:
                 case ConfigKeys.WebdavPreviewPar2Files:
@@ -341,6 +342,17 @@ public class ConfigManager
         var defaultValue = true;
         var configValue = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.ApiEnsureImportableVideo));
         return (configValue != null ? bool.Parse(configValue) : defaultValue);
+    }
+
+    /// <summary>
+    /// When true (default), non-video files with missing articles are skipped
+    /// instead of failing the job.
+    /// </summary>
+    public bool IsSkipNonVideoOnMissingArticlesEnabled()
+    {
+        var defaultValue = true;
+        var configValue = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.ApiSkipNonVideoOnMissingArticles));
+        return configValue != null ? bool.Parse(configValue) : defaultValue;
     }
 
     public bool ShowHiddenWebdavFiles()

@@ -25,6 +25,7 @@ public static class ConfigKeys
     public const string ApiNzbBackupEnabled = "api.nzb-backup-enabled";
     public const string ApiNzbBackupLocation = "api.nzb-backup-location";
     public const string ApiSearchUserAgent = "api.search-user-agent";
+    public const string ApiSkipNonVideoOnMissingArticles = "api.skip-non-video-on-missing-articles";
     public const string ApiStrmKey = "api.strm-key";
     public const string ApiUserAgent = "api.user-agent";
 

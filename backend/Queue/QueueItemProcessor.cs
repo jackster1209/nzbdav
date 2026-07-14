@@ -352,7 +352,7 @@ public class QueueItemProcessor(
 
             else if (group.Key == "other")
                 foreach (var fileInfo in group)
-                    yield return new FileProcessor(fileInfo, usenetClient, ct);
+                    yield return new FileProcessor(fileInfo, usenetClient, configManager, ct);
         }
     }
 
