@@ -73,22 +73,36 @@ public static class IEnumerableTaskExtensions
             throw new ArgumentException("concurrency must be greater than zero.");
 
         var runningTasks = new HashSet<Task<T>>();
-        foreach (var task in tasks)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            runningTasks.Add(task);
-            if (runningTasks.Count < concurrency) continue;
-            var completedTask = await Task.WhenAny(runningTasks).ConfigureAwait(false);
-            runningTasks.Remove(completedTask);
-            yield return await completedTask.ConfigureAwait(false);
-        }
+            foreach (var task in tasks)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                runningTasks.Add(task);
+                if (runningTasks.Count < concurrency) continue;
+                var completedTask = await Task.WhenAny(runningTasks).ConfigureAwait(false);
+                runningTasks.Remove(completedTask);
+                yield return await completedTask.ConfigureAwait(false);
+            }
 
-        while (runningTasks.Count > 0)
+            while (runningTasks.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var completedTask = await Task.WhenAny(runningTasks).ConfigureAwait(false);
+                runningTasks.Remove(completedTask);
+                yield return await completedTask.ConfigureAwait(false);
+            }
+        }
+        finally
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var completedTask = await Task.WhenAny(runningTasks).ConfigureAwait(false);
-            runningTasks.Remove(completedTask);
-            yield return await completedTask.ConfigureAwait(false);
+            // Early exit (fault, cancellation, abandoned enumeration): wait for in-flight
+            // tasks so they cannot race post-enumeration cleanup, and observe their
+            // exceptions so they don't become unobserved-task noise.
+            if (runningTasks.Count > 0)
+            {
+                try { await Task.WhenAll(runningTasks).ConfigureAwait(false); }
+                catch { /* original exception stays authoritative */ }
+            }
         }
     }
 }
