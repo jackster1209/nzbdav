@@ -154,6 +154,120 @@ public class ProviderMetricsKeyTests
         Assert.False(await verify.ProviderHourly.AnyAsync(x => x.Provider == secondKey));
     }
 
+    [Fact]
+    public async Task Remap_LeavesRawSegmentFetchRowsUntouched()
+    {
+        await using var harness = await MetricsHarness.CreateAsync();
+        var provider = MakeProvider("news.example.com", "user");
+        var key = UsenetProviderIdentity.MetricsKey(provider);
+        var hour = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        hour -= hour % 3_600_000;
+
+        // Host-keyed rollup row (must merge) and raw fetch row (must be skipped —
+        // rewriting SegmentFetches at startup is what caused the 0.7.17 boot loop).
+        harness.Context.ProviderHourly.Add(new ProviderHourly
+        {
+            Hour = hour,
+            Provider = "news.example.com",
+            BytesFetched = 1234,
+        });
+        harness.Context.SegmentFetches.Add(new SegmentFetch
+        {
+            At = hour,
+            Provider = "news.example.com",
+            Bytes = 42,
+            Status = SegmentFetch.FetchStatus.Ok,
+        });
+        await harness.Context.SaveChangesAsync();
+
+        await UsenetProviderIdentity.RemapHostKeyedMetricsAsync(
+            new UsenetProviderConfig { Providers = [provider] },
+            harness.Context);
+
+        await using var verify = harness.CreateContext();
+        Assert.True(await verify.SegmentFetches.AnyAsync(x => x.Provider == "news.example.com"));
+        Assert.False(await verify.SegmentFetches.AnyAsync(x => x.Provider == key));
+        var hourly = await verify.ProviderHourly.SingleAsync(x => x.Provider == key);
+        Assert.Equal(1234, hourly.BytesFetched);
+        Assert.False(await verify.ProviderHourly.AnyAsync(x => x.Provider == "news.example.com"));
+    }
+
+    [Fact]
+    public async Task Remap_DoesNotThrowWhenMetricsDatabaseIsUnusable()
+    {
+        // Un-migrated database: every table query throws "no such table". The remap
+        // must contain the failure — throwing here used to crash backend startup.
+        var dir = Path.Combine(Path.GetTempPath(), $"nzbdav-metrics-broken-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var options = new DbContextOptionsBuilder<MetricsDbContext>()
+                .UseSqlite($"Data Source={Path.Combine(dir, "metrics.sqlite")}")
+                .Options;
+            await using var context = new MetricsDbContext(options);
+
+            await UsenetProviderIdentity.RemapHostKeyedMetricsAsync(
+                new UsenetProviderConfig { Providers = [MakeProvider("news.example.com", "user")] },
+                context);
+        }
+        finally
+        {
+            try { Directory.Delete(dir, recursive: true); }
+            catch { /* best effort */ }
+        }
+    }
+
+    [Fact]
+    public async Task Remap_ResumesAfterPartialRunWithoutDoubleCounting()
+    {
+        await using var harness = await MetricsHarness.CreateAsync();
+        var provider = MakeProvider("news.example.com", "user");
+        var key = UsenetProviderIdentity.MetricsKey(provider);
+        var hour = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        hour -= hour % 3_600_000;
+        var minute = hour;
+
+        // Simulate a run that committed the ProviderMinutes merge and was then
+        // killed: minute rows are already id-keyed, hourly rows are still host-keyed.
+        harness.Context.ProviderMinutes.Add(new ProviderMinute
+        {
+            Minute = minute,
+            Provider = key,
+            BytesFetched = 700,
+            Articles = 7,
+        });
+        harness.Context.ProviderHourly.Add(new ProviderHourly
+        {
+            Hour = hour,
+            Provider = "news.example.com",
+            BytesFetched = 700,
+            Articles = 7,
+        });
+        await harness.Context.SaveChangesAsync();
+
+        await UsenetProviderIdentity.RemapHostKeyedMetricsAsync(
+            new UsenetProviderConfig { Providers = [provider] },
+            harness.Context);
+
+        await using var verify = harness.CreateContext();
+        var minuteRow = await verify.ProviderMinutes.SingleAsync(x => x.Provider == key);
+        Assert.Equal(700, minuteRow.BytesFetched);
+        Assert.Equal(7, minuteRow.Articles);
+        var hourly = await verify.ProviderHourly.SingleAsync(x => x.Provider == key);
+        Assert.Equal(700, hourly.BytesFetched);
+        Assert.Equal(7, hourly.Articles);
+        Assert.False(await verify.ProviderHourly.AnyAsync(x => x.Provider == "news.example.com"));
+
+        // A second full run is a no-op (nothing left to remap).
+        await using (var rerun = harness.CreateContext())
+        {
+            await UsenetProviderIdentity.RemapHostKeyedMetricsAsync(
+                new UsenetProviderConfig { Providers = [provider] }, rerun);
+        }
+        await using var verifyAgain = harness.CreateContext();
+        Assert.Equal(700, (await verifyAgain.ProviderHourly.SingleAsync(x => x.Provider == key)).BytesFetched);
+    }
+
     private static UsenetProviderConfig.ConnectionDetails MakeProvider(
         string host,
         string user,

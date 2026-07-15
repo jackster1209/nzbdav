@@ -107,8 +107,9 @@ class Program
             var configManager = new ConfigManager();
             await configManager.LoadConfig().ConfigureAwait(false);
 
-            // Assign stable ProviderIds (persisting if needed) and remap legacy
-            // host-keyed metrics rows before the streaming client is built.
+            // Assign stable ProviderIds (persisting if needed) before the streaming
+            // client is built. Cheap and non-fatal; the heavy legacy-metrics remap
+            // runs in the background after the app starts (see below).
             await UsenetProviderIdentity
                 .EnsureAsync(configManager, SigtermUtil.GetCancellationToken())
                 .ConfigureAwait(false);
@@ -243,6 +244,15 @@ class Program
             app.UseWebdavBasicAuthentication();
             app.UseNWebDav();
             app.Lifetime.ApplicationStopping.Register(SigtermUtil.Cancel);
+            // Remap legacy host-keyed metrics rows onto ProviderIds after the app is
+            // serving. This can rewrite a lot of rows on old databases and must never
+            // delay the /health endpoint: blocking startup on it caused a container
+            // boot-loop (entrypoint kills the backend after its 30s health window).
+            // The remap is chunked, resumable, and never throws.
+            app.Lifetime.ApplicationStarted.Register(() => _ = Task.Run(() =>
+                UsenetProviderIdentity.RemapHostKeyedMetricsAsync(
+                    configManager.GetUsenetProviderConfig(),
+                    SigtermUtil.GetCancellationToken())));
             await app.RunAsync().ConfigureAwait(false);
         }
         catch (Exception exception)

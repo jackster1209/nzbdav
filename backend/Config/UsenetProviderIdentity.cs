@@ -22,18 +22,27 @@ public static class UsenetProviderIdentity
     }
 
     /// <summary>
-    /// Assigns missing ProviderIds, persists them to the main config DB, and remaps
-    /// legacy host-keyed metrics rows. Must run after config load and metrics DB
-    /// migration, before UsenetStreamingClient is constructed.
+    /// Assigns missing ProviderIds and persists them to the main config DB. Must run
+    /// after config load, before UsenetStreamingClient is constructed. Never throws:
+    /// startup must not fail over metrics keying, and the connection pool self-heals
+    /// missing ids at construction time.
     /// </summary>
     public static async Task EnsureAsync(ConfigManager configManager, CancellationToken ct = default)
     {
         var providerConfig = configManager.GetUsenetProviderConfig();
         var assigned = EnsureProviderIds(providerConfig);
-        if (assigned)
-            await PersistProvidersAsync(configManager, providerConfig, ct).ConfigureAwait(false);
+        if (!assigned) return;
 
-        await RemapHostKeyedMetricsAsync(providerConfig, ct).ConfigureAwait(false);
+        try
+        {
+            await PersistProvidersAsync(configManager, providerConfig, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex,
+                "Failed to persist assigned usenet ProviderIds; continuing with in-memory ids. " +
+                "Metrics keys may not be stable across restarts until a save succeeds.");
+        }
     }
 
     /// <summary>
@@ -126,6 +135,12 @@ public static class UsenetProviderIdentity
     /// <summary>
     /// Remaps legacy host-keyed metrics onto ProviderId keys. When multiple config
     /// entries share a host, only the first inherits the historical rows.
+    ///
+    /// Designed to run in the background after startup: it never throws, and each
+    /// merge commits in its own short transaction so an interrupted run (shutdown,
+    /// container kill) resumes where it left off instead of restarting from zero.
+    /// Raw SegmentFetches rows are intentionally not remapped — they expire within
+    /// 24 hours and rewriting them is what made large databases stall at startup.
     /// </summary>
     public static async Task RemapHostKeyedMetricsAsync(
         UsenetProviderConfig config,
@@ -135,7 +150,6 @@ public static class UsenetProviderIdentity
         if (config.Providers.Count == 0) return;
 
         var seenHosts = new HashSet<string>(StringComparer.Ordinal);
-        await using var tx = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
         try
         {
             var remapped = 0;
@@ -148,13 +162,9 @@ public static class UsenetProviderIdentity
                     continue;
 
                 var metricsKey = MetricsKey(provider);
-                var hasHostHourly = await db.ProviderHourly
-                    .AnyAsync(x => x.Provider == host, ct)
-                    .ConfigureAwait(false);
-                var hasAnyHostKeyed = hasHostHourly
-                    || await db.ProviderMinutes
+                var hasAnyHostKeyed = await db.ProviderHourly
                         .AnyAsync(x => x.Provider == host, ct).ConfigureAwait(false)
-                    || await db.SegmentFetches
+                    || await db.ProviderMinutes
                         .AnyAsync(x => x.Provider == host, ct).ConfigureAwait(false)
                     || await db.FailoverMisses
                         .AnyAsync(x => x.FromProvider == host || x.ToProvider == host, ct)
@@ -166,81 +176,93 @@ public static class UsenetProviderIdentity
 
                 await MergeProviderMinutesAsync(db, host, metricsKey, ct).ConfigureAwait(false);
                 await MergeProviderHourlyAsync(db, host, metricsKey, ct).ConfigureAwait(false);
-                await RemapSegmentFetchesAsync(db, host, metricsKey, ct).ConfigureAwait(false);
                 await RemapFailoverMissesAsync(db, host, metricsKey, ct).ConfigureAwait(false);
                 await MergeFailoverHourlyAsync(db, host, metricsKey, ct).ConfigureAwait(false);
                 remapped++;
             }
 
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
-            await tx.CommitAsync(ct).ConfigureAwait(false);
             if (remapped > 0)
                 Log.Information("Remapped host-keyed metrics rows onto ProviderId for {Count} provider(s).", remapped);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            Log.Information("Host-keyed metrics remap interrupted by shutdown; it will resume on next startup.");
+        }
         catch (Exception ex)
         {
-            await tx.RollbackAsync(ct).ConfigureAwait(false);
             Log.Warning(ex, "Failed to remap host-keyed provider metrics; continuing with ProviderId keys going forward.");
         }
     }
 
-    private static async Task MergeProviderMinutesAsync(
-        MetricsDbContext db, string host, string metricsKey, CancellationToken ct)
+    /// <summary>
+    /// Runs a merge-and-delete pair atomically so a mid-run interruption can never
+    /// double-count rows when the remap is retried on the next startup.
+    /// </summary>
+    private static async Task ExecuteAtomicallyAsync(
+        MetricsDbContext db, CancellationToken ct, Func<Task> work)
     {
-        await db.Database.ExecuteSqlRawAsync(
-            """
-            INSERT INTO ProviderMinutes (Minute, Provider, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, Hist)
-            SELECT Minute, {0}, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, Hist
-            FROM ProviderMinutes WHERE Provider = {1}
-            ON CONFLICT(Minute, Provider) DO UPDATE SET
-                Articles = ProviderMinutes.Articles + excluded.Articles,
-                BytesFetched = ProviderMinutes.BytesFetched + excluded.BytesFetched,
-                Misses = ProviderMinutes.Misses + excluded.Misses,
-                Errors = ProviderMinutes.Errors + excluded.Errors,
-                Retries = ProviderMinutes.Retries + excluded.Retries,
-                FailoverSaves = ProviderMinutes.FailoverSaves + excluded.FailoverSaves,
-                SumDurationMs = ProviderMinutes.SumDurationMs + excluded.SumDurationMs;
-            """,
-            new object[] { metricsKey, host }, ct).ConfigureAwait(false);
-        await db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM ProviderMinutes WHERE Provider = {0}",
-            new object[] { host }, ct).ConfigureAwait(false);
+        await using var tx = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await work().ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
     }
 
-    private static async Task MergeProviderHourlyAsync(
+    private static Task MergeProviderMinutesAsync(
         MetricsDbContext db, string host, string metricsKey, CancellationToken ct)
     {
-        await db.Database.ExecuteSqlRawAsync(
-            """
-            INSERT INTO ProviderHourly (Hour, Provider, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, P95DurationMs)
-            SELECT Hour, {0}, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, P95DurationMs
-            FROM ProviderHourly WHERE Provider = {1}
-            ON CONFLICT(Hour, Provider) DO UPDATE SET
-                Articles = ProviderHourly.Articles + excluded.Articles,
-                BytesFetched = ProviderHourly.BytesFetched + excluded.BytesFetched,
-                Misses = ProviderHourly.Misses + excluded.Misses,
-                Errors = ProviderHourly.Errors + excluded.Errors,
-                Retries = ProviderHourly.Retries + excluded.Retries,
-                FailoverSaves = ProviderHourly.FailoverSaves + excluded.FailoverSaves,
-                SumDurationMs = ProviderHourly.SumDurationMs + excluded.SumDurationMs;
-            """,
-            new object[] { metricsKey, host }, ct).ConfigureAwait(false);
-        await db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM ProviderHourly WHERE Provider = {0}",
-            new object[] { host }, ct).ConfigureAwait(false);
+        return ExecuteAtomicallyAsync(db, ct, async () =>
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO ProviderMinutes (Minute, Provider, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, Hist)
+                SELECT Minute, {0}, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, Hist
+                FROM ProviderMinutes WHERE Provider = {1}
+                ON CONFLICT(Minute, Provider) DO UPDATE SET
+                    Articles = ProviderMinutes.Articles + excluded.Articles,
+                    BytesFetched = ProviderMinutes.BytesFetched + excluded.BytesFetched,
+                    Misses = ProviderMinutes.Misses + excluded.Misses,
+                    Errors = ProviderMinutes.Errors + excluded.Errors,
+                    Retries = ProviderMinutes.Retries + excluded.Retries,
+                    FailoverSaves = ProviderMinutes.FailoverSaves + excluded.FailoverSaves,
+                    SumDurationMs = ProviderMinutes.SumDurationMs + excluded.SumDurationMs;
+                """,
+                new object[] { metricsKey, host }, ct).ConfigureAwait(false);
+            await db.Database.ExecuteSqlRawAsync(
+                "DELETE FROM ProviderMinutes WHERE Provider = {0}",
+                new object[] { host }, ct).ConfigureAwait(false);
+        });
     }
 
-    private static async Task RemapSegmentFetchesAsync(
+    private static Task MergeProviderHourlyAsync(
         MetricsDbContext db, string host, string metricsKey, CancellationToken ct)
     {
-        await db.Database.ExecuteSqlRawAsync(
-            "UPDATE SegmentFetches SET Provider = {0} WHERE Provider = {1}",
-            new object[] { metricsKey, host }, ct).ConfigureAwait(false);
+        return ExecuteAtomicallyAsync(db, ct, async () =>
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO ProviderHourly (Hour, Provider, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, P95DurationMs)
+                SELECT Hour, {0}, Articles, BytesFetched, Misses, Errors, Retries, FailoverSaves, SumDurationMs, P95DurationMs
+                FROM ProviderHourly WHERE Provider = {1}
+                ON CONFLICT(Hour, Provider) DO UPDATE SET
+                    Articles = ProviderHourly.Articles + excluded.Articles,
+                    BytesFetched = ProviderHourly.BytesFetched + excluded.BytesFetched,
+                    Misses = ProviderHourly.Misses + excluded.Misses,
+                    Errors = ProviderHourly.Errors + excluded.Errors,
+                    Retries = ProviderHourly.Retries + excluded.Retries,
+                    FailoverSaves = ProviderHourly.FailoverSaves + excluded.FailoverSaves,
+                    SumDurationMs = ProviderHourly.SumDurationMs + excluded.SumDurationMs;
+                """,
+                new object[] { metricsKey, host }, ct).ConfigureAwait(false);
+            await db.Database.ExecuteSqlRawAsync(
+                "DELETE FROM ProviderHourly WHERE Provider = {0}",
+                new object[] { host }, ct).ConfigureAwait(false);
+        });
     }
 
     private static async Task RemapFailoverMissesAsync(
         MetricsDbContext db, string host, string metricsKey, CancellationToken ct)
     {
+        // Single UPDATEs are naturally resumable: rerunning after an interruption
+        // simply matches fewer (or zero) rows.
         await db.Database.ExecuteSqlRawAsync(
             "UPDATE FailoverMisses SET FromProvider = {0} WHERE FromProvider = {1}",
             new object[] { metricsKey, host }, ct).ConfigureAwait(false);
@@ -253,30 +275,36 @@ public static class UsenetProviderIdentity
         MetricsDbContext db, string host, string metricsKey, CancellationToken ct)
     {
         // Remap FromProvider first, then ToProvider, merging on conflict.
-        await db.Database.ExecuteSqlRawAsync(
-            """
-            INSERT INTO FailoverHourly (Hour, FromProvider, ToProvider, Reason, Count)
-            SELECT Hour, {0}, ToProvider, Reason, Count
-            FROM FailoverHourly WHERE FromProvider = {1}
-            ON CONFLICT(Hour, FromProvider, ToProvider, Reason) DO UPDATE SET
-                Count = FailoverHourly.Count + excluded.Count;
-            """,
-            new object[] { metricsKey, host }, ct).ConfigureAwait(false);
-        await db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM FailoverHourly WHERE FromProvider = {0}",
-            new object[] { host }, ct).ConfigureAwait(false);
+        await ExecuteAtomicallyAsync(db, ct, async () =>
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO FailoverHourly (Hour, FromProvider, ToProvider, Reason, Count)
+                SELECT Hour, {0}, ToProvider, Reason, Count
+                FROM FailoverHourly WHERE FromProvider = {1}
+                ON CONFLICT(Hour, FromProvider, ToProvider, Reason) DO UPDATE SET
+                    Count = FailoverHourly.Count + excluded.Count;
+                """,
+                new object[] { metricsKey, host }, ct).ConfigureAwait(false);
+            await db.Database.ExecuteSqlRawAsync(
+                "DELETE FROM FailoverHourly WHERE FromProvider = {0}",
+                new object[] { host }, ct).ConfigureAwait(false);
+        }).ConfigureAwait(false);
 
-        await db.Database.ExecuteSqlRawAsync(
-            """
-            INSERT INTO FailoverHourly (Hour, FromProvider, ToProvider, Reason, Count)
-            SELECT Hour, FromProvider, {0}, Reason, Count
-            FROM FailoverHourly WHERE ToProvider = {1}
-            ON CONFLICT(Hour, FromProvider, ToProvider, Reason) DO UPDATE SET
-                Count = FailoverHourly.Count + excluded.Count;
-            """,
-            new object[] { metricsKey, host }, ct).ConfigureAwait(false);
-        await db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM FailoverHourly WHERE ToProvider = {0}",
-            new object[] { host }, ct).ConfigureAwait(false);
+        await ExecuteAtomicallyAsync(db, ct, async () =>
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO FailoverHourly (Hour, FromProvider, ToProvider, Reason, Count)
+                SELECT Hour, FromProvider, {0}, Reason, Count
+                FROM FailoverHourly WHERE ToProvider = {1}
+                ON CONFLICT(Hour, FromProvider, ToProvider, Reason) DO UPDATE SET
+                    Count = FailoverHourly.Count + excluded.Count;
+                """,
+                new object[] { metricsKey, host }, ct).ConfigureAwait(false);
+            await db.Database.ExecuteSqlRawAsync(
+                "DELETE FROM FailoverHourly WHERE ToProvider = {0}",
+                new object[] { host }, ct).ConfigureAwait(false);
+        }).ConfigureAwait(false);
     }
 }
