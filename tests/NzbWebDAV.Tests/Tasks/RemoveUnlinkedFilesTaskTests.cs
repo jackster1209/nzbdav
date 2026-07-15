@@ -20,13 +20,14 @@ public class RemoveUnlinkedFilesTaskTests
         var ctx = harness.Context;
         var createdBefore = DateTime.Now.AddMinutes(1);
 
-        var parent = NewDir(Guid.NewGuid(), DavItem.ContentFolder, "show");
+        // Category folder under /content is protected; nested empties beneath it are removed.
+        var category = NewDir(Guid.NewGuid(), DavItem.ContentFolder, "movies");
+        var parent = NewDir(Guid.NewGuid(), category, "show");
         var child = NewDir(Guid.NewGuid(), parent, "season");
         var grandchild = NewDir(Guid.NewGuid(), child, "empty");
-        // keptFile under ContentFolder keeps that root non-empty; empty show/season tree is removed.
         var keptFile = DavItem.New(
             Guid.NewGuid(),
-            DavItem.ContentFolder,
+            category,
             "keep.mkv",
             10,
             DavItem.ItemType.UsenetFile,
@@ -36,7 +37,7 @@ public class RemoveUnlinkedFilesTaskTests
             null,
             null);
         await SeedRootsAsync(ctx);
-        ctx.Items.AddRange(parent, child, grandchild, keptFile);
+        ctx.Items.AddRange(category, parent, child, grandchild, keptFile);
         await ctx.SaveChangesAsync();
 
         var removed = await RemoveUnlinkedFilesTask.RemoveEmptyDirectoriesAsync(
@@ -47,7 +48,97 @@ public class RemoveUnlinkedFilesTaskTests
         Assert.False(await ctx.Items.AnyAsync(x => x.Id == grandchild.Id));
         Assert.False(await ctx.Items.AnyAsync(x => x.Id == child.Id));
         Assert.False(await ctx.Items.AnyAsync(x => x.Id == parent.Id));
+        Assert.True(await ctx.Items.AnyAsync(x => x.Id == category.Id));
         Assert.True(await ctx.Items.AnyAsync(x => x.Id == keptFile.Id));
+    }
+
+    [Fact]
+    public async Task RemoveEmptyDirectoriesAsync_PreservesEmptyCategoryFolderUnderContent()
+    {
+        await using var harness = await TempDb.CreateAsync();
+        var ctx = harness.Context;
+        await SeedRootsAsync(ctx);
+
+        var category = NewDir(Guid.NewGuid(), DavItem.ContentFolder, "tv");
+        ctx.Items.Add(category);
+        await ctx.SaveChangesAsync();
+
+        var createdBefore = DateTime.Now.AddMinutes(1);
+        await RemoveUnlinkedFilesTask.RemoveEmptyDirectoriesAsync(ctx, createdBefore);
+
+        Assert.True(await ctx.Items.AnyAsync(x => x.Id == category.Id));
+    }
+
+    [Fact]
+    public async Task RemoveEmptyDirectoriesAsync_PreservesEmptyDirWithHistoryItemId()
+    {
+        await using var harness = await TempDb.CreateAsync();
+        var ctx = harness.Context;
+        await SeedRootsAsync(ctx);
+
+        var category = NewDir(Guid.NewGuid(), DavItem.ContentFolder, "movies");
+        var mountFolder = DavItem.New(
+            Guid.NewGuid(),
+            category,
+            "Some.Release",
+            null,
+            DavItem.ItemType.Directory,
+            DavItem.ItemSubType.Directory,
+            null,
+            null,
+            historyItemId: Guid.NewGuid(),
+            fileBlobId: null);
+        ctx.Items.AddRange(category, mountFolder);
+        await ctx.SaveChangesAsync();
+
+        var createdBefore = DateTime.Now.AddMinutes(1);
+        var removed = await RemoveUnlinkedFilesTask.RemoveEmptyDirectoriesAsync(ctx, createdBefore);
+
+        Assert.Equal(0, removed);
+        Assert.True(await ctx.Items.AnyAsync(x => x.Id == mountFolder.Id));
+    }
+
+    [Fact]
+    public async Task DeleteEmptyDirectoriesByIdTextAsync_SkipsDirThatGainedChild()
+    {
+        await using var harness = await TempDb.CreateAsync();
+        var ctx = harness.Context;
+        await SeedRootsAsync(ctx);
+
+        var category = NewDir(Guid.NewGuid(), DavItem.ContentFolder, "movies");
+        var emptyDir = NewDir(Guid.NewGuid(), category, "release");
+        ctx.Items.AddRange(category, emptyDir);
+        await ctx.SaveChangesAsync();
+
+        var candidates = new[]
+        {
+            new RemoveUnlinkedFilesTask.UnlinkedItemInfo(
+                emptyDir.Id.ToString().ToUpperInvariant(),
+                (int)emptyDir.Type,
+                emptyDir.Path),
+        };
+
+        // Simulate a concurrent queue insert between SELECT and DELETE.
+        var child = DavItem.New(
+            Guid.NewGuid(),
+            emptyDir,
+            "video.mkv",
+            10,
+            DavItem.ItemType.UsenetFile,
+            DavItem.ItemSubType.NzbFile,
+            null,
+            null,
+            null,
+            null);
+        ctx.Items.Add(child);
+        await ctx.SaveChangesAsync();
+
+        var deleted = await RemoveUnlinkedFilesTask.DeleteEmptyDirectoriesByIdTextAsync(
+            ctx, candidates);
+
+        Assert.Equal(0, deleted);
+        Assert.True(await ctx.Items.AnyAsync(x => x.Id == emptyDir.Id));
+        Assert.True(await ctx.Items.AnyAsync(x => x.Id == child.Id));
     }
 
     [Fact]
@@ -70,10 +161,8 @@ public class RemoveUnlinkedFilesTaskTests
         ctx.Items.Add(file);
         await ctx.SaveChangesAsync();
 
-        // Drain migration-seeded empty category folders (e.g. /content/uncategorized
-        // from Fix-Empty-Categories). Filling them via EF fails: ParentId is stored
-        // uppercase while the seeded folder Id is lowercase, so raw SQL still sees
-        // the folder as empty.
+        // Category folders under /content are protected; migration-seeded empties
+        // (e.g. /content/uncategorized) remain and must not block a clean second pass.
         var createdBefore = DateTime.Now.AddMinutes(1);
         await RemoveUnlinkedFilesTask.RemoveEmptyDirectoriesAsync(ctx, createdBefore);
 
@@ -83,6 +172,89 @@ public class RemoveUnlinkedFilesTaskTests
 
         Assert.Equal(0, removed);
         Assert.True(await ctx.Items.AnyAsync(x => x.Id == file.Id));
+    }
+
+    [Fact]
+    public async Task DryRun_DoesNotTreatLowercaseLinkedIdAsUnlinked()
+    {
+        await BaseTask.ResetRunningTaskForTestsAsync();
+        var libraryDir = Path.Combine(Path.GetTempPath(), $"nzbdav-lib-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(libraryDir);
+        await using var harness = await TempDb.CreateAsync();
+        try
+        {
+            var ctx = harness.Context;
+            await SeedRootsAsync(ctx);
+
+            var linkedIds = Enumerable.Range(0, 5).Select(_ => Guid.NewGuid()).ToList();
+            foreach (var id in linkedIds)
+            {
+                ctx.Items.Add(DavItem.New(
+                    id,
+                    DavItem.ContentFolder,
+                    $"{id:N}.mkv",
+                    10,
+                    DavItem.ItemType.UsenetFile,
+                    DavItem.ItemSubType.NzbFile,
+                    null,
+                    null,
+                    null,
+                    null));
+            }
+
+            await ctx.SaveChangesAsync();
+
+            // Seed a lowercase-Id UsenetFile the way Fix-Empty-Categories seeds folders.
+            var lowercaseId = Guid.NewGuid();
+            var lowercaseIdText = lowercaseId.ToString().ToLowerInvariant();
+            await ctx.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO DavItems (Id, IdPrefix, CreatedAt, ParentId, Name, FileSize, Type, SubType, Path)
+                VALUES ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8})
+                """,
+                lowercaseIdText,
+                lowercaseIdText[..5],
+                DateTime.Now.AddMinutes(-1),
+                DavItem.ContentFolder.Id.ToString(),
+                $"{lowercaseId:N}.mkv",
+                10L,
+                (int)DavItem.ItemType.UsenetFile,
+                (int)DavItem.ItemSubType.NzbFile,
+                $"/content/{lowercaseId:N}.mkv");
+
+            foreach (var id in linkedIds.Append(lowercaseId))
+            {
+                await File.WriteAllTextAsync(
+                    Path.Combine(libraryDir, $"{id:N}.strm"),
+                    $"http://localhost/view/.ids/{id}.mkv");
+            }
+
+            var config = new ConfigManager();
+            config.UpdateValues(
+            [
+                new ConfigItem { ConfigName = ConfigKeys.MediaLibraryDir, ConfigValue = libraryDir },
+            ]);
+
+            var websocket = new WebsocketManager();
+            var task = new RemoveUnlinkedFilesTask(
+                config,
+                websocket,
+                isDryRun: true,
+                createContext: () => harness.CreateContext());
+
+            Assert.True(await task.Execute());
+
+            var progress = websocket.PeekLastMessage(WebsocketTopic.CleanupTaskProgress);
+            Assert.NotNull(progress);
+            Assert.StartsWith("Dry Run - Done.", progress);
+            Assert.Contains("Identified 0 unlinked files", progress);
+        }
+        finally
+        {
+            await BaseTask.ResetRunningTaskForTestsAsync();
+            RemoveUnlinkedFilesTask.ClearAuditPathsForTests();
+            try { Directory.Delete(libraryDir, recursive: true); } catch { /* best effort */ }
+        }
     }
 
     [Fact]

@@ -88,7 +88,21 @@ public class DatabaseBackupSchedulerService : BackgroundService
                     _websocketManager,
                     _store,
                     DatabaseBackupKinds.Scheduled);
-                await task.Execute().ConfigureAwait(false);
+                var executed = await task.Execute().ConfigureAwait(false);
+                if (!executed)
+                {
+                    // BaseTask's single-flight slot is shared across all maintenance tasks.
+                    // Do not mark the slot as completed — retry shortly so a concurrent
+                    // orphaned-files/strm task does not silently skip the day's run.
+                    Log.Warning(
+                        "DatabaseBackupScheduler: another maintenance task is running; " +
+                        "will retry in 5 minutes");
+                    using var retryLinked = CancellationTokenSource
+                        .CreateLinkedTokenSource(stoppingToken, reschedule.Token);
+                    await Task.Delay(TimeSpan.FromMinutes(5), retryLinked.Token).ConfigureAwait(false);
+                    continue;
+                }
+
                 _lastRun = nextRun;
             }
             catch (OperationCanceledException) when (SigtermUtil.IsSigtermTriggered())

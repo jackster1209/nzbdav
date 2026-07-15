@@ -20,7 +20,7 @@ public class RemoveUnlinkedFilesTask(
 {
     private static List<string> _allRemovedPaths = [];
 
-    private record UnlinkedItemInfo(string Id, int Type, string Path);
+    internal record UnlinkedItemInfo(string Id, int Type, string Path);
 
     private DavDatabaseContext CreateContext() => createContext?.Invoke() ?? new DavDatabaseContext();
 
@@ -45,6 +45,7 @@ public class RemoveUnlinkedFilesTask(
         var linkedIdCount = await WriteLinkedIdsToTable().ConfigureAwait(false);
         if (linkedIdCount < 5)
         {
+            _allRemovedPaths.Clear();
             Report($"Aborted: " +
                    $"There are less than five linked files found in your library. " +
                    $"Cancelling operation to prevent accidental bulk deletion.");
@@ -73,6 +74,7 @@ public class RemoveUnlinkedFilesTask(
 
             if (!isDryRun)
             {
+                _allRemovedPaths.Clear();
                 Report($"Aborted: {detail} Cancelling to prevent accidental bulk deletion. " +
                        $"Run a dry-run to inspect if this is genuinely expected.");
                 return;
@@ -106,17 +108,17 @@ public class RemoveUnlinkedFilesTask(
             CREATE TABLE TMP_LINKED_FILES (Id TEXT NOT NULL);
             """).ConfigureAwait(false);
 
-        var count = 0;
+        var scannedCount = 0;
         var batches = GetLinkedIds().ToBatches(100);
         foreach (var batch in batches)
         {
             await InsertLinkedIdBatchAsync(dbContext, batch).ConfigureAwait(false);
-            count += batch.Count;
+            scannedCount += batch.Count;
         }
 
         // Remove duplicates and add primary key index.
         // Create a new table with unique constraint, copy distinct values, then swap.
-        Report($"Indexing {count} linked files...");
+        Report($"Indexing {scannedCount} linked files...");
         await dbContext.Database.ExecuteSqlRawAsync(
             """
             CREATE TABLE TMP_LINKED_FILES_UNIQUE (Id TEXT NOT NULL PRIMARY KEY);
@@ -125,7 +127,12 @@ public class RemoveUnlinkedFilesTask(
             ALTER TABLE TMP_LINKED_FILES_UNIQUE RENAME TO TMP_LINKED_FILES;
             """).ConfigureAwait(false);
 
-        return count;
+        // Guard uses distinct dav-item ids, not raw symlink/strm count (many links can
+        // point at the same item and otherwise sail past the < 5 safety check).
+        return await dbContext.Database
+            .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM TMP_LINKED_FILES")
+            .FirstAsync()
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -185,6 +192,39 @@ public class RemoveUnlinkedFilesTask(
 #pragma warning restore EF1002
     }
 
+    /// <summary>
+    /// Deletes empty directories by Id, re-checking emptiness in the same statement so a
+    /// concurrent insert under a selected folder cannot race into a cascade delete.
+    /// </summary>
+    internal static async Task<int> DeleteEmptyDirectoriesByIdTextAsync(
+        DavDatabaseContext dbContext,
+        IReadOnlyList<UnlinkedItemInfo> items,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new SqliteParameter[items.Count];
+        var placeholders = new string[items.Count];
+        for (var i = 0; i < items.Count; i++)
+        {
+            var name = $"@p{i}";
+            placeholders[i] = name;
+            parameters[i] = new SqliteParameter(name, items[i].Id);
+        }
+
+        // Placeholder names are generated locally (@p0..@pN); values are bound via SqliteParameter.
+#pragma warning disable EF1002
+        return await dbContext.Database.ExecuteSqlRawAsync(
+            $"""
+             DELETE FROM DavItems
+             WHERE Id IN ({string.Join(",", placeholders)})
+               AND NOT EXISTS (
+                   SELECT 1 FROM DavItems c WHERE c.ParentId = DavItems.Id
+               )
+             """,
+            parameters.AsEnumerable(),
+            cancellationToken).ConfigureAwait(false);
+#pragma warning restore EF1002
+    }
+
     private IEnumerable<Guid> GetLinkedIds()
     {
         var debounce = DebounceUtil.CreateDebounce(TimeSpan.FromMilliseconds(500));
@@ -233,11 +273,13 @@ public class RemoveUnlinkedFilesTask(
         // LEFT JOIN is equivalent to the NOT IN subquery used by RemoveUnlinkedItems /
         // DryRunIdentifyUnlinkedFiles; CountDeletableItems mirrors these predicates without
         // the link join so the safety ratio compares the same population.
+        // COLLATE NOCASE: TMP_LINKED_FILES stores uppercase Guids while some DavItems.Id
+        // rows are lowercase (migration-seeded); a case-sensitive miss would delete linked files.
         var count = await dbContext.Database
             .SqlQuery<int>(
                 $"""
                  SELECT COUNT(i.Id) AS Value FROM DavItems i
-                 LEFT JOIN TMP_LINKED_FILES t ON i.Id = t.Id
+                 LEFT JOIN TMP_LINKED_FILES t ON i.Id = t.Id COLLATE NOCASE
                  WHERE i.Type = {usenetFileType}
                    AND i.HistoryItemId IS NULL
                    AND i.CreatedAt < {createdBefore}
@@ -259,7 +301,8 @@ public class RemoveUnlinkedFilesTask(
 
         while (true)
         {
-            // Select items to delete (batch of 100)
+            // Select items to delete (batch of 100). NOT EXISTS + COLLATE NOCASE so a
+            // lowercase DavItems.Id still matches an uppercase TMP_LINKED_FILES row.
             var itemsToDelete = await dbContext.Database
                 .SqlQuery<UnlinkedItemInfo>(
                     $"""
@@ -267,7 +310,10 @@ public class RemoveUnlinkedFilesTask(
                      WHERE Type = {usenetFileType}
                        AND HistoryItemId IS NULL
                        AND CreatedAt < {createdBefore}
-                       AND Id NOT IN (SELECT Id FROM TMP_LINKED_FILES)
+                       AND NOT EXISTS (
+                           SELECT 1 FROM TMP_LINKED_FILES t
+                           WHERE t.Id = DavItems.Id COLLATE NOCASE
+                       )
                      LIMIT 100
                      """)
                 .ToListAsync()
@@ -329,8 +375,11 @@ public class RemoveUnlinkedFilesTask(
     }
 
     /// <summary>
-    /// Deletes empty regular directories in batches and returns the number removed. Throws if a
-    /// selected batch deletes 0 rows, which would otherwise loop forever with a climbing counter.
+    /// Deletes empty regular directories in batches and returns the number removed.
+    /// Category folders under /content and /nzbs are excluded (WebDAV synthesizes them;
+    /// deleting them races with in-flight queue processing via DavCleanupService cascade).
+    /// Mount folders still linked to SAB history are also excluded. The DELETE re-checks
+    /// emptiness so a concurrent child insert cannot race into a cascade delete.
     /// </summary>
     internal static async Task<int> RemoveEmptyDirectoriesAsync(
         DavDatabaseContext dbContext,
@@ -341,6 +390,11 @@ public class RemoveUnlinkedFilesTask(
     {
         var removed = 0;
         var directorySubType = (int)DavItem.ItemSubType.Directory;
+        var contentFolderId = DavItem.ContentFolder.Id.ToString();
+        var nzbFolderId = DavItem.NzbFolder.Id.ToString();
+        // When a selected batch deletes fewer rows than selected (child appeared mid-flight),
+        // retry. Only abort if the same batch ids keep making no progress.
+        string? lastStuckBatchKey = null;
 
         while (true)
         {
@@ -351,7 +405,9 @@ public class RemoveUnlinkedFilesTask(
                     $"""
                      SELECT d.Id AS Id, d.Type AS Type, d.Path AS Path FROM DavItems d
                      WHERE d.SubType = {directorySubType}
+                       AND d.HistoryItemId IS NULL
                        AND d.CreatedAt < {createdBefore}
+                       AND d.ParentId NOT IN ({contentFolderId}, {nzbFolderId})
                        AND NOT EXISTS (
                            SELECT 1 FROM DavItems c WHERE c.ParentId = d.Id
                        )
@@ -364,23 +420,38 @@ public class RemoveUnlinkedFilesTask(
                 break;
 
             // Delete by the exact Id text from the select so stored casing never matters
-            // (the Fix-Empty-Categories migration seeds a lowercase-Id folder).
+            // (the Fix-Empty-Categories migration seeds a lowercase-Id folder). Re-check
+            // emptiness in the DELETE so a concurrent insert under a selected folder
+            // cannot race into TR_DavItems_DeleteDirectory + DavCleanupService cascade.
+            var deleted = await DeleteEmptyDirectoriesByIdTextAsync(
+                    dbContext, emptyDirs, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (deleted == 0)
+            {
+                var batchKey = string.Join(",", emptyDirs.Select(x => x.Id));
+                if (batchKey == lastStuckBatchKey)
+                {
+                    throw new InvalidOperationException(
+                        $"selected {emptyDirs.Count} empty directories but deleted 0 twice; " +
+                        $"aborting to avoid an infinite loop.");
+                }
+
+                lastStuckBatchKey = batchKey;
+                continue;
+            }
+
+            lastStuckBatchKey = null;
+
+            // Prefer auditing the full selected batch when every row deleted. On a partial
+            // delete the survivors remain for the next iteration; over-auditing the rare
+            // race case is preferable to missing deleted paths.
             foreach (var dir in emptyDirs)
             {
                 DeletionAuditLog.Record(
                     "remove-orphaned",
                     new DavItem { Id = Guid.Parse(dir.Id), Path = dir.Path },
                     "empty directory after orphaned-file cleanup");
-            }
-
-            var deleted = await DeleteItemsByIdTextAsync(dbContext, emptyDirs, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (deleted == 0)
-            {
-                throw new InvalidOperationException(
-                    $"selected {emptyDirs.Count} empty directories but deleted 0; " +
-                    $"aborting to avoid an infinite loop.");
             }
 
             if (onDeleted is not null)
@@ -419,7 +490,10 @@ public class RemoveUnlinkedFilesTask(
                        AND HistoryItemId IS NULL
                        AND CreatedAt < {createdBefore}
                        AND Id > {lastId}
-                       AND Id NOT IN (SELECT Id FROM TMP_LINKED_FILES)
+                       AND NOT EXISTS (
+                           SELECT 1 FROM TMP_LINKED_FILES t
+                           WHERE t.Id = DavItems.Id COLLATE NOCASE
+                       )
                      ORDER BY Id
                      LIMIT 100
                      """)
