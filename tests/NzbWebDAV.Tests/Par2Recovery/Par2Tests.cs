@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using NzbWebDAV.Par2Recovery;
+using NzbWebDAV.Par2Recovery.Packets;
 
 namespace NzbWebDAV.Tests.Par2Recovery;
 
@@ -32,5 +34,110 @@ public class Par2Tests
             descriptions.Add(description);
 
         Assert.Empty(descriptions);
+    }
+
+    [Fact]
+    public async Task ReadFileDescriptions_PrefersUniFileNOverFileDescWhenFileIdsMatch()
+    {
+        var fileId = Enumerable.Range(10, 16).Select(i => (byte)i).ToArray();
+        var asciiName = "obfuscated.mkv";
+        var unicodeName = "한국어_예능.mkv";
+
+        await using var stream = new MemoryStream();
+        WritePacket(stream, FileDesc.PacketType, BuildFileDescBody(fileId, asciiName));
+        WritePacket(stream, UniFileN.PacketType, BuildUniFileNBody(fileId, unicodeName));
+        stream.Position = 0;
+
+        var descriptions = new List<FileDesc>();
+        await foreach (var description in Par2.ReadFileDescriptions(stream))
+            descriptions.Add(description);
+
+        var desc = Assert.Single(descriptions);
+        Assert.Equal(unicodeName, desc.FileName);
+        Assert.Equal(fileId, desc.FileID);
+    }
+
+    [Fact]
+    public async Task ReadFileDescriptions_PrefersUniFileNWhenItAppearsBeforeFileDesc()
+    {
+        var fileId = Enumerable.Repeat((byte)0x42, 16).ToArray();
+        var asciiName = "ascii.mkv";
+        var unicodeName = "日本語テスト.mkv";
+
+        await using var stream = new MemoryStream();
+        WritePacket(stream, UniFileN.PacketType, BuildUniFileNBody(fileId, unicodeName));
+        WritePacket(stream, FileDesc.PacketType, BuildFileDescBody(fileId, asciiName));
+        stream.Position = 0;
+
+        var descriptions = new List<FileDesc>();
+        await foreach (var description in Par2.ReadFileDescriptions(stream))
+            descriptions.Add(description);
+
+        Assert.Equal(unicodeName, Assert.Single(descriptions).FileName);
+    }
+
+    [Fact]
+    public async Task ReadFileDescriptions_KeepsFileDescNameWhenNoMatchingUniFileN()
+    {
+        var fileId = Enumerable.Repeat((byte)0x11, 16).ToArray();
+        var otherFileId = Enumerable.Repeat((byte)0x22, 16).ToArray();
+
+        await using var stream = new MemoryStream();
+        WritePacket(stream, FileDesc.PacketType, BuildFileDescBody(fileId, "keep-me.mkv"));
+        WritePacket(stream, UniFileN.PacketType, BuildUniFileNBody(otherFileId, "다른이름.mkv"));
+        stream.Position = 0;
+
+        var descriptions = new List<FileDesc>();
+        await foreach (var description in Par2.ReadFileDescriptions(stream))
+            descriptions.Add(description);
+
+        Assert.Equal("keep-me.mkv", Assert.Single(descriptions).FileName);
+    }
+
+    private static byte[] BuildFileDescBody(byte[] fileId, string fileName)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(fileName);
+        var paddedLen = ((nameBytes.Length + 3) / 4) * 4;
+        var body = new byte[56 + paddedLen];
+        fileId.CopyTo(body, 0);
+        nameBytes.CopyTo(body, 56);
+        return body;
+    }
+
+    private static byte[] BuildUniFileNBody(byte[] fileId, string fileName)
+    {
+        var nameBytes = Encoding.Unicode.GetBytes(fileName);
+        var paddedLen = ((nameBytes.Length + 3) / 4) * 4;
+        var body = new byte[16 + paddedLen];
+        fileId.CopyTo(body, 0);
+        nameBytes.CopyTo(body, 16);
+        return body;
+    }
+
+    private static void WritePacket(Stream stream, string packetType, byte[] body)
+    {
+        var headerSize = Marshal.SizeOf<Par2PacketHeader>();
+        var header = new Par2PacketHeader
+        {
+            Magic = "PAR2\0PKT"u8.ToArray(),
+            PacketLength = (ulong)(headerSize + body.Length),
+            PacketHash = new byte[16],
+            RecoverySetID = new byte[16],
+            PacketType = Encoding.ASCII.GetBytes(packetType.PadRight(16, '\0')[..16]),
+        };
+
+        var headerBytes = new byte[headerSize];
+        var handle = GCHandle.Alloc(headerBytes, GCHandleType.Pinned);
+        try
+        {
+            Marshal.StructureToPtr(header, handle.AddrOfPinnedObject(), false);
+        }
+        finally
+        {
+            handle.Free();
+        }
+
+        stream.Write(headerBytes);
+        stream.Write(body);
     }
 }

@@ -21,9 +21,14 @@ namespace NzbWebDAV.Par2Recovery
             CancellationToken ct = default
         )
         {
-            Par2Packet? packet = null;
+            // Buffer descriptors and optional UniFileN names so Unicode can win
+            // regardless of packet order (UniFileN may appear before or after FileDesc).
+            var fileDescs = new List<FileDesc>();
+            var unicodeNamesByFileId = new Dictionary<string, string>(StringComparer.Ordinal);
+
             while (stream.Position < stream.Length && !ct.IsCancellationRequested)
             {
+                Par2Packet packet;
                 try
                 {
                     packet = await ReadPacketAsync(stream).ConfigureAwait(false);
@@ -31,13 +36,29 @@ namespace NzbWebDAV.Par2Recovery
                 catch (Exception e)
                 {
                     Log.Warning(e, "Failed to read PAR2 packet");
-                    yield break;
+                    break;
                 }
 
-                if (packet is FileDesc newFile)
+                switch (packet)
                 {
-                    yield return newFile;
+                    case FileDesc fileDesc:
+                        fileDescs.Add(fileDesc);
+                        break;
+                    case UniFileN uniFileN:
+                        unicodeNamesByFileId[Convert.ToHexString(uniFileN.FileID)] = uniFileN.FileName;
+                        break;
                 }
+            }
+
+            foreach (var fileDesc in fileDescs)
+            {
+                if (unicodeNamesByFileId.TryGetValue(Convert.ToHexString(fileDesc.FileID), out var unicodeName)
+                    && !string.IsNullOrEmpty(unicodeName))
+                {
+                    fileDesc.FileName = unicodeName;
+                }
+
+                yield return fileDesc;
             }
         }
 
@@ -58,6 +79,9 @@ namespace NzbWebDAV.Par2Recovery
             {
                 case FileDesc.PacketType:
                     result = new FileDesc(header);
+                    break;
+                case UniFileN.PacketType:
+                    result = new UniFileN(header);
                     break;
                 default:
                     result = new Par2Packet(header);

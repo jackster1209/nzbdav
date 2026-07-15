@@ -14,7 +14,7 @@ namespace NzbWebDAV.Par2Recovery.Packets
         public byte[] FileHash { get; protected set; } = null!;
         public byte[] File16kHash { get; protected set; } = null!;
         public ulong FileLength { get; protected set; }
-        public string FileName { get; protected set; } = null!;
+        public string FileName { get; internal set; } = null!;
 
         public FileDesc(Par2PacketHeader header) : base(header)
         {
