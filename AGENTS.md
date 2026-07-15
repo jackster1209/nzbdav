@@ -239,6 +239,18 @@ When a task that changed the repo is done (unless the user explicitly said not t
 3. **Open a PR** to `main` with `gh pr create` (short summary + test plan). Report the PR URL in the final response.
 4. **Reset the workspace** for the next agent: `git checkout main` && `git pull`, then confirm a clean working tree on `main`.
 
+### PR titles
+
+PR titles use the same `<type>(<scope>): <description>` format as commits, but write the description for **end users, not maintainers**: say what is fixed or introduced from the user's perspective, not how it was implemented. Commit messages carry the technical detail; the PR title is what people skim in the PR list and release notes.
+
+| Commit message (technical) | PR title (user-facing) |
+|----------------------------|------------------------|
+| `fix(usenet): move legacy metrics remap off the blocking startup path` | `fix(usenet): container no longer boot-loops after upgrading with a large metrics database` |
+| `fix(webdav): clamp infinite-depth PROPFIND to depth 1` | `fix(webdav): prevent rclone mounts hanging on large directory listings` |
+| `feat(db): stage guided restore and swap databases during maintenance` | `feat(db): restore database backups from the settings UI` |
+
+Keep the type/scope accurate — release tooling and reviewers still rely on them. If the change has no user-visible effect (`chore`, internal refactors), a concise technical title is fine.
+
 Skip this handoff if there are no local changes and nothing to push or PR. Do not force-push, amend pushed commits, or leave uncommitted work behind when switching to `main` (commit it onto the PR branch first).
 
 ## CI/CD
