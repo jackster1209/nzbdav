@@ -212,13 +212,30 @@ export function BackupSettings({ config, setNewConfig }: BackupSettingsProps) {
         }
     }, [refreshList]);
 
-    const downloadBackup = useCallback((id: string) => {
-        const a = document.createElement("a");
-        a.href = `/api/db-backup-download?id=${encodeURIComponent(id)}`;
-        a.download = `nzbdav-backup-${id}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+    const downloadBackup = useCallback(async (id: string) => {
+        setBusy(`download-${id}`);
+        setMessage(null);
+        try {
+            const res = await fetch(`/api/db-backup-download?id=${encodeURIComponent(id)}`);
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                setMessage({ text: data?.error || `Download failed (${res.status})`, variant: "danger" });
+                return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `nzbdav-backup-${id}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch {
+            setMessage({ text: "Download failed.", variant: "danger" });
+        } finally {
+            setBusy(null);
+        }
     }, []);
 
     const uploadBackup = useCallback(async (file: File) => {
@@ -544,9 +561,12 @@ export function BackupSettings({ config, setNewConfig }: BackupSettingsProps) {
                                         <Button
                                             variant="outline"
                                             size="small"
-                                            onClick={() => downloadBackup(backup.id)}
+                                            disabled={busy === `download-${backup.id}`}
+                                            onClick={() => void downloadBackup(backup.id)}
                                         >
-                                            <Icon name="download" className="!text-[16px]" />
+                                            {busy === `download-${backup.id}`
+                                                ? <Spinner className="h-4 w-4" />
+                                                : <Icon name="download" className="!text-[16px]" />}
                                             Download
                                         </Button>
                                         <Button

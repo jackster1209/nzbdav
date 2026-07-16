@@ -46,6 +46,11 @@ public abstract class BaseApiController : ControllerBase
                                   !HttpContext.RequestAborted.IsCancellationRequested)
         {
             Log.Error(e, "Unhandled admin API request failure");
+            // Once headers/body have started (e.g. a streamed zip), writing a JSON
+            // 500 would corrupt the response and surface as a browser network error.
+            if (HttpContext.Response.HasStarted)
+                return new EmptyResult();
+
             return StatusCode(500, new BaseApiResponse()
             {
                 Status = false,

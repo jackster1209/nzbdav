@@ -23,7 +23,22 @@ public class DbBackupDownloadController(DatabaseBackupStore store) : BaseApiCont
         Response.ContentType = "application/zip";
         Response.Headers.ContentDisposition = $"attachment; filename=\"nzbdav-backup-{id}.zip\"";
 
-        await using var archive = new ZipArchive(Response.Body, ZipArchiveMode.Create, leaveOpen: true);
+        // ZipArchive still performs sync writes (even with async APIs on .NET 10).
+        // BodyWriter.AsStream() tolerates those sync writes; Response.Body does not.
+        await WriteBackupZipAsync(backupDir, Response.BodyWriter.AsStream(), HttpContext.RequestAborted)
+            .ConfigureAwait(false);
+
+        return new EmptyResult();
+    }
+
+    /// <summary>
+    /// Writes the backup directory contents as a zip to <paramref name="output"/>,
+    /// excluding the rollback folder. Extracted for unit testing against async-only streams.
+    /// </summary>
+    internal static async Task WriteBackupZipAsync(
+        string backupDir, Stream output, CancellationToken cancellationToken = default)
+    {
+        await using var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true);
         foreach (var file in Directory.EnumerateFiles(backupDir, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(backupDir, file).Replace('\\', '/');
@@ -33,9 +48,7 @@ public class DbBackupDownloadController(DatabaseBackupStore store) : BaseApiCont
             var entry = archive.CreateEntry(relative, CompressionLevel.Fastest);
             await using var entryStream = entry.Open();
             await using var fileStream = System.IO.File.OpenRead(file);
-            await fileStream.CopyToAsync(entryStream, HttpContext.RequestAborted).ConfigureAwait(false);
+            await fileStream.CopyToAsync(entryStream, cancellationToken).ConfigureAwait(false);
         }
-
-        return new EmptyResult();
     }
 }
