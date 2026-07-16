@@ -24,6 +24,7 @@ public sealed class MigrationProgress
         "20260129182923_Update-DavItems-Type-And-SubType",
         "20260203071130_Add-DavCleanupItems-Table",
         "20260712000000_Fix-Empty-Categories",
+        "20260713120000_Add-Path-Index-To-DavItems",
     };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -122,11 +123,17 @@ public sealed class MigrationProgress
     public static bool IsSlow(string migrationId) => SlowMigrations.Contains(migrationId);
 
     /// <summary>
-    /// True when there is nothing user-visible to report: no pending EF migrations
-    /// and vacuum is disabled. The migration runner skips the status server in this case.
+    /// True when there is nothing user-visible to report: no pending main or
+    /// metrics EF migrations and vacuum is disabled. The migration runner skips
+    /// the status server in this case.
     /// </summary>
-    public static bool IsIdleMaintenance(int pendingMigrationCount, bool vacuumEnabled) =>
-        pendingMigrationCount == 0 && !vacuumEnabled;
+    public static bool IsIdleMaintenance(
+        int pendingMigrationCount,
+        int pendingMetricsMigrationCount,
+        bool vacuumEnabled) =>
+        pendingMigrationCount == 0
+        && pendingMetricsMigrationCount == 0
+        && !vacuumEnabled;
 
     private sealed class StepState(string id, string name, bool slow)
     {

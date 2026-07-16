@@ -365,11 +365,19 @@ class Program
                 .ExecuteSqlRawAsync("PRAGMA journal_mode = WAL;", ct)
                 .ConfigureAwait(false);
             var pendingProbe = (await probeContext.Database.GetPendingMigrationsAsync(ct).ConfigureAwait(false)).ToList();
+            await using var metricsProbeContext = new MetricsDbContext();
+            var pendingMetricsProbe = (await metricsProbeContext.Database
+                .GetPendingMigrationsAsync(ct)
+                .ConfigureAwait(false))
+                .ToList();
             var vacuumEnabledProbe = await IsDatabaseStartupVacuumEnabledAsync().ConfigureAwait(false);
 
             // Routine restarts with nothing to do: skip the status server and its
             // grace delay so Docker does not bind/unbind :8080 just to say "idle".
-            if (MigrationProgress.IsIdleMaintenance(pendingProbe.Count, vacuumEnabledProbe))
+            if (MigrationProgress.IsIdleMaintenance(
+                    pendingProbe.Count,
+                    pendingMetricsProbe.Count,
+                    vacuumEnabledProbe))
             {
                 Log.Information("No pending database migrations");
                 await using var metricsContext = new MetricsDbContext();

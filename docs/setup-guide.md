@@ -93,11 +93,11 @@ services:
     container_name: nzbdav
     restart: unless-stopped
     healthcheck:
-      # Follow the onboarding/login redirect and verify that the UI can reach the backend
-      test: ["CMD-SHELL", "curl -fsSL http://localhost:3000/login > /dev/null || exit 1"]
+      # Keep the container healthy while one-time backend maintenance is running
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:3000/healthz > /dev/null || exit 1"]
       interval: 30s
       retries: 3         # mark unhealthy after 3 consecutive failures
-      start_period: 30s  # allow migrations and both processes to start
+      start_period: 60s  # allow the frontend process to start
       timeout: 5s
     ports:
       - "3000:3000"
@@ -118,7 +118,7 @@ Run the container:
 docker compose up -d
 ```
 
-The image runs two processes: the frontend and public proxy on port `3000`, and the backend on internal port `8080`. Clients should use port `3000`; the compose healthcheck follows the login/onboarding flow so it verifies that the frontend can also reach the backend.
+The image runs two processes: the frontend and public proxy on port `3000`, and the backend on internal port `8080`. Clients should use port `3000`; the compose healthcheck targets the frontend-local `/healthz` endpoint so long one-time database maintenance does not mark the container unhealthy. The entrypoint separately waits for the backend health endpoint and exits the container if the backend cannot start.
 
 !!! warning "Important"
 
