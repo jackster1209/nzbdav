@@ -367,6 +367,48 @@ public class RemoveUnlinkedFilesTaskTests
         Assert.Equal(3, count);
     }
 
+    [Fact]
+    public async Task LinkedFilesLookup_UsesPrimaryKeySeek_NotFullScan()
+    {
+        // Regression for #408: predicate COLLATE NOCASE made the BINARY PK ineligible,
+        // turning each NOT EXISTS into SCAN t. Column NOCASE + t.Id = DavItems.Id must SEEK.
+        await using var harness = await TempDb.CreateAsync();
+        var ctx = harness.Context;
+
+        await ctx.Database.ExecuteSqlRawAsync(
+            """
+            DROP TABLE IF EXISTS TMP_LINKED_FILES;
+            CREATE TABLE TMP_LINKED_FILES (Id TEXT NOT NULL COLLATE NOCASE PRIMARY KEY);
+            INSERT INTO TMP_LINKED_FILES (Id) VALUES ('AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE');
+            """);
+
+        var connection = ctx.Database.GetDbConnection();
+        await using var command = connection.CreateCommand();
+        if (command.Connection!.State != System.Data.ConnectionState.Open)
+            await command.Connection.OpenAsync();
+        command.CommandText =
+            """
+            EXPLAIN QUERY PLAN
+            SELECT Id FROM DavItems
+            WHERE NOT EXISTS (
+                SELECT 1 FROM TMP_LINKED_FILES t
+                WHERE t.Id = DavItems.Id
+            )
+            """;
+
+        var details = new List<string>();
+        await using (var reader = await command.ExecuteReaderAsync())
+        {
+            var detailOrdinal = reader.GetOrdinal("detail");
+            while (await reader.ReadAsync())
+                details.Add(reader.GetString(detailOrdinal));
+        }
+
+        var plan = string.Join('\n', details);
+        Assert.Contains("SEARCH t", plan, StringComparison.Ordinal);
+        Assert.DoesNotContain("SCAN t", plan, StringComparison.Ordinal);
+    }
+
     private static DavItem NewDir(Guid id, DavItem parent, string name) =>
         DavItem.New(id, parent, name, null, DavItem.ItemType.Directory, DavItem.ItemSubType.Directory,
             null, null, null, null);
