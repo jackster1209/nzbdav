@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using NzbWebDAV.Par2Recovery.Packets;
@@ -18,7 +19,7 @@ namespace NzbWebDAV.Par2Recovery
         public static async IAsyncEnumerable<FileDesc> ReadFileDescriptions
         (
             Stream stream,
-            CancellationToken ct = default
+            [EnumeratorCancellation] CancellationToken ct = default
         )
         {
             // Buffer descriptors and optional UniFileN names so Unicode can win
