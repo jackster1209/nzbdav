@@ -54,6 +54,17 @@ public class BaseNntpClientStatTests
         Assert.Equal("seg@example", exception.SegmentId);
     }
 
+    [Fact]
+    public async Task StatAsync_With480_UsesClearAuthRequiredMessage()
+    {
+        using var client = new BaseNntpClient(new ScriptedUsenetClient(480));
+
+        var exception = await Assert.ThrowsAsync<UsenetUnexpectedResponseException>(() =>
+            client.StatAsync("seg@example", CancellationToken.None));
+
+        Assert.Contains("requires authentication", exception.Message);
+    }
+
     private sealed class ScriptedUsenetClient(int responseCode) : IUsenetClient
     {
         public bool IsConnected => true;

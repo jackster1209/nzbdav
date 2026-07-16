@@ -217,9 +217,13 @@ public class UsenetStreamingClient : WrappingNntpClient
             await connection.ConnectAsync(
                 connectionDetails.Host, connectionDetails.Port, connectionDetails.UseSsl,
                 timeoutCts.Token).ConfigureAwait(false);
-            await connection.AuthenticateAsync(
-                connectionDetails.User, connectionDetails.Pass,
-                timeoutCts.Token).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(connectionDetails.User) ||
+                !string.IsNullOrEmpty(connectionDetails.Pass))
+            {
+                await connection.AuthenticateAsync(
+                    connectionDetails.User, connectionDetails.Pass,
+                    timeoutCts.Token).ConfigureAwait(false);
+            }
             return connection;
         }
         catch

@@ -80,7 +80,7 @@ public class BaseNntpClient : NntpClient
             return response;
         }
 
-        throw new UsenetUnexpectedResponseException(segmentId, response.ResponseMessage);
+        throw CreateConnectionLevelException(segmentId, response);
     }
 
     public override async Task<UsenetHeadResponse> HeadAsync(SegmentId segmentId, CancellationToken cancellationToken)
@@ -197,7 +197,19 @@ public class BaseNntpClient : NntpClient
     {
         return UsenetArticleAvailability.IsDefinitiveMissing(response)
             ? new UsenetArticleNotFoundException(segmentId, response.ResponseMessage)
-            : new UsenetUnexpectedResponseException(segmentId, response.ResponseMessage);
+            : CreateConnectionLevelException(segmentId, response);
+    }
+
+    private static Exception CreateConnectionLevelException(SegmentId segmentId, UsenetResponse response)
+    {
+        if (response.ResponseCode == 480)
+        {
+            return new UsenetUnexpectedResponseException(
+                segmentId,
+                "Provider requires authentication but no credentials are configured");
+        }
+
+        return new UsenetUnexpectedResponseException(segmentId, response.ResponseMessage);
     }
 
     public override void Dispose()
