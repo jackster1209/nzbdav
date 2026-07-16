@@ -1,4 +1,5 @@
 import { memo, useCallback, useState, type ChangeEvent, type RefObject } from "react"
+import { Select } from "~/components/ui"
 
 export type SimpleDropdownProps = {
     type?: "plain" | "bordered"
@@ -26,15 +27,15 @@ export const SimpleDropdown = memo(({ type, options, value, onChange, valueRef }
     }, [valueRef, onChange]);
 
     return (
-        <select
+        <Select
             aria-label="Select option"
-            className={`select select-xs ${type === "bordered" ? "select-bordered" : "select-ghost"} w-auto min-w-20`}
+            className={`select-xs w-auto min-w-20 ${type === "bordered" ? "" : "select-ghost"}`.trim()}
             value={renderedValue}
             onChange={handleNativeChange}
         >
             {options.map(option => (
                 <option key={option} value={option}>{option}</option>
             ))}
-        </select>
+        </Select>
     );
 });

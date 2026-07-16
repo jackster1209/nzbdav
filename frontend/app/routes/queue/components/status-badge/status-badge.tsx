@@ -39,16 +39,16 @@ export function StatusBadge({ className, status, percentage, error }: StatusBadg
 
         return (
             <ProgressStatus className={className}>
-                <Badge className="badge badge-sm w-full justify-center font-semibold">
+                <Badge className="badge-sm w-full justify-center font-semibold">
                     {badgeText}
                 </Badge>
                 <progress
-                    className={`progress progress-xs w-full ${isHealthChecking ? "progress-neutral" : "progress-primary"}`}
+                    className={`progress h-1 w-full ${isHealthChecking ? "progress-neutral" : "progress-primary"}`}
                     value={downloadValue}
                     max={100}
                 />
                 {isHealthChecking &&
-                    <progress className="progress progress-success progress-xs w-full" value={healthValue} max={100} />
+                    <progress className="progress progress-success h-1 w-full" value={healthValue} max={100} />
                 }
             </ProgressStatus>
         );
@@ -60,12 +60,12 @@ export function StatusBadge({ className, status, percentage, error }: StatusBadg
 
         return (
             <ProgressStatus className={className}>
-                <Badge className="badge badge-info badge-sm w-full justify-center gap-0.5 font-semibold">
+                <Badge className="badge-info badge-sm w-full justify-center gap-0.5 font-semibold">
                     <Icon name="upload" className="!text-[12px]" />
                     {badgeText}
                 </Badge>
                 <progress
-                    className="progress progress-info progress-xs w-full"
+                    className="progress progress-info h-1 w-full"
                     value={Math.min(percentNum, 100)}
                     max={100}
                 />
@@ -85,11 +85,11 @@ export function StatusBadge({ className, status, percentage, error }: StatusBadg
 
         return (
             <ProgressStatus className={className}>
-                <Badge className="badge badge-sm w-full justify-center font-semibold">
+                <Badge className="badge-sm w-full justify-center font-semibold">
                     {badgeText}
                 </Badge>
                 <progress
-                    className="progress progress-success progress-xs w-full"
+                    className="progress progress-success h-1 w-full"
                     value={Math.min(percentNum, 100)}
                     max={100}
                 />

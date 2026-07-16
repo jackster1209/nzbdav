@@ -9,7 +9,7 @@ Visual and styling guidelines for the NzbDav frontend. Apply these when refactor
 
 ## Core principles
 
-1. **Dark-first.** The document uses the custom daisyUI `nzbdav` theme via `data-theme="nzbdav"`.
+1. **Dark-first.** The document uses daisyUI's built-in `night` theme via `data-theme="night"`.
 2. **daisyUI-native components.** Use daisyUI component classes and supported markup for buttons, forms, toggles, modals, alerts, badges, tabs, tooltips, and loading indicators. Prefer the wrappers in `app/components/ui`; direct daisyUI classes are also allowed.
 3. **Semantic colors.** New code uses daisyUI semantic utilities such as `bg-base-100`, `text-base-content`, `btn-primary`, and `text-error`, not raw slate/blue palette utilities.
 4. **Tailwind for layout.** Continue using Tailwind utilities for spacing, responsive layout, typography, and one-off composition around daisyUI components.
@@ -17,7 +17,7 @@ Visual and styling guidelines for the NzbDav frontend. Apply these when refactor
 
 ## Theme token vocabulary
 
-The `nzbdav` theme in `app/app.css` is the source of truth. Its primary daisyUI variables are:
+The built-in daisyUI `night` theme (enabled in `app/app.css`) is the source of truth. Its primary daisyUI variables are:
 
 | Token | Role |
 |-------|------|
@@ -101,7 +101,7 @@ Hide by default in dense panes (`.no-scrollbar`), or show a thin styled one (`.y
 
 ## Applying themes
 
-Set `data-theme="nzbdav"` on the document root. The legacy `data-appearance-theme="dark"` attribute and utility remaps remain temporarily for existing pages; new code should use daisyUI semantic classes and must not depend on those remaps.
+Set `data-theme="night"` on the document root. New code should use daisyUI semantic classes (`bg-base-*`, `text-base-content`, etc.), not raw palette utilities.
 
 ## NzbDav-specific notes
 

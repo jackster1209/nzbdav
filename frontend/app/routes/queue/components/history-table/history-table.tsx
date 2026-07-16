@@ -66,7 +66,7 @@ export function HistoryTable({ historySlots, totalHistoryCount, pageNumber, tota
 
     const sectionTitle = (
         <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-semibold text-white">History</h2>
+            <h2 className="text-xl font-semibold text-base-content">History</h2>
             {headerCheckboxState !== 'none' &&
                 <ActionButton type="delete" onClick={onRemove} />
             }
@@ -74,7 +74,7 @@ export function HistoryTable({ historySlots, totalHistoryCount, pageNumber, tota
     );
 
     const footer = totalPages > 1 ? (
-        <div className="flex flex-col items-center gap-2 text-xs text-slate-400">
+        <div className="flex flex-col items-center gap-2 text-xs text-base-content/60">
             {!isLive && <span>Live updates pause on older pages. Go to page 1 for live.</span>}
             <Pagination pageNumber={pageNumber} totalPages={totalPages} onPageSelected={onPageSelected} />
         </div>

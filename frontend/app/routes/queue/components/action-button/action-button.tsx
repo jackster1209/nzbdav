@@ -20,7 +20,7 @@ export function ActionButton({ type, text, disabled, selected, onClick }: Action
             disabled={disabled}
             aria-pressed={type === "menu" ? selected : undefined}
             aria-label={!text ? type : undefined}
-            className={`${type === "menu" ? "w-[30px] px-1" : ""} ${selected ? "bg-white/20 text-white" : ""}`}
+            className={`${type === "menu" ? "w-[30px] px-1" : ""} ${selected ? "bg-base-content/20 text-base-content" : ""}`}
             onClick={onClick}
         >
             <Icon name={icon} filled={type !== "menu"} className="!text-[16px]" />

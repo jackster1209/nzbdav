@@ -96,18 +96,18 @@ export default function Queue(props: Route.ComponentProps) {
 
     // view
     return (
-        <div className="min-h-full min-w-full px-4 py-4 text-sm text-slate-300 md:px-8">
+        <div className="flex min-h-full min-w-full flex-col gap-8 px-4 py-4 text-sm text-base-content/70 md:px-8">
 
             {dropzone.rejectMessage && (
-                <Alert className="mb-4" variant="warning">
+                <Alert variant="warning">
                     {dropzone.rejectMessage}
                 </Alert>
             )}
 
             {/* queue */}
-            <div className="mb-12 min-h-[413.9px] min-[450px]:min-h-[382.9px]">
+            <div className="min-h-[413.9px] min-[450px]:min-h-[382.9px]">
                 <div className="relative" {...dropzone.getRootProps()}>
-                    {dropzone.isDragActive && <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded border-2 border-dashed border-blue-500 bg-blue-500/10" />}
+                    {dropzone.isDragActive && <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded border-2 border-dashed border-primary bg-primary/10" />}
                     <input {...dropzone.getInputProps()} />
                     <QueueTable
                         queueSlots={combinedQueueSlots}

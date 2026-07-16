@@ -5,6 +5,7 @@ import { Truncate } from "../truncate/truncate";
 import { StatusBadge } from "../status-badge/status-badge";
 import { formatFileSize } from "~/utils/file-size";
 import type { ProviderUsage } from "~/clients/backend-client.server";
+import { Badge } from "~/components/ui";
 
 const desktopHeaderClass = "hidden min-[900px]:table-cell w-[120px] text-center text-xs font-semibold uppercase tracking-wide";
 const desktopCellClass = "hidden min-[900px]:table-cell max-w-[200px] min-w-0 overflow-hidden whitespace-nowrap px-1 py-3 text-center align-middle";
@@ -147,14 +148,14 @@ function isSameDate(a: Date, b: Date): boolean {
 
 export function CategoryBadge({ category }: { category: string }) {
     const categoryLower = category?.toLowerCase();
-    return <span className="badge badge-outline badge-sm w-[88px] lowercase">{categoryLower}</span>;
+    return <Badge className="badge-outline badge-sm w-[88px] lowercase">{categoryLower}</Badge>;
 }
 
 export function IndexerBadge({ indexer }: { indexer: string }) {
     return (
-        <span className="badge badge-dash badge-ghost badge-sm max-w-[110px] truncate" title={`Indexer: ${indexer}`}>
+        <Badge className="badge-dash badge-ghost badge-sm max-w-[110px] truncate" title={`Indexer: ${indexer}`}>
             via {indexer}
-        </span>
+        </Badge>
     );
 }
 

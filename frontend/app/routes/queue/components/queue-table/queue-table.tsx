@@ -8,8 +8,6 @@ import { PageSection } from "../page-section/page-section"
 import { Pagination } from "../pagination/pagination"
 import { EmptyQueue } from "../empty-queue/empty-queue"
 import { SimpleDropdown } from "../simple-dropdown/simple-dropdown"
-import { WideViewport } from "../wide-viewport/wide-viewport"
-import { ThinViewport } from "../thin-viewport/thin-viewport"
 import { Tooltip } from "~/components/ui"
 
 export type QueueTableProps = {
@@ -110,28 +108,26 @@ export function QueueTable({
 
     const sectionTitle = (
         <div className="flex items-center gap-2.5">
-            <h2 className="cursor-pointer text-xl font-semibold text-white" onClick={onUploadClicked}>
+            <h2 className="cursor-pointer text-xl font-semibold text-base-content" onClick={onUploadClicked}>
                 Queue
             </h2>
             {headerCheckboxState !== 'none' &&
                 <ActionButton type="delete" onClick={onRemove} />
             }
-            <WideViewport width="450px">
-                <div className="ml-2.5">
-                    {categoryDropdown}
-                </div>
-            </WideViewport>
+            <div className="ml-2.5 hidden min-[450px]:block">
+                {categoryDropdown}
+            </div>
         </div>
     );
 
     const sectionSubTitle = (
-        <ThinViewport width="450px">
+        <div className="block min-[450px]:hidden">
             {categoryDropdown}
-        </ThinViewport>
+        </div>
     );
 
     const footer = totalPages > 1 ? (
-        <div className="flex flex-col items-center gap-2 text-xs text-slate-400">
+        <div className="flex flex-col items-center gap-2 text-xs text-base-content/60">
             {!isLive && <span>Live updates pause on older pages. Go to page 1 for live.</span>}
             <Pagination pageNumber={pageNumber} totalPages={totalPages} onPageSelected={onPageSelected} />
         </div>

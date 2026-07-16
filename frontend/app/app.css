@@ -3,49 +3,13 @@
 @import "@fontsource-variable/inter";
 
 @plugin "daisyui" {
-  themes: false;
+  themes: night --default;
   logs: false;
 }
 
-@plugin "daisyui/theme" {
-  name: "nzbdav";
-  default: true;
-  color-scheme: dark;
-
-  --color-base-100: #1e293b;
-  --color-base-200: #1f2937;
-  --color-base-300: #111827;
-  --color-base-content: #f8fafc;
-  --color-primary: #2563eb;
-  --color-primary-content: #ffffff;
-  --color-secondary: #3b82f6;
-  --color-secondary-content: #ffffff;
-  --color-accent: #60a5fa;
-  --color-accent-content: #020617;
-  --color-neutral: #334155;
-  --color-neutral-content: #cbd5e1;
-  --color-info: #3b82f6;
-  --color-info-content: #ffffff;
-  --color-success: #059669;
-  --color-success-content: #ffffff;
-  --color-warning: #d97706;
-  --color-warning-content: #020617;
-  --color-error: #dc2626;
-  --color-error-content: #ffffff;
-
-  --radius-selector: 0.5rem;
-  --radius-field: 0.25rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 1px;
-  --depth: 1;
-  --noise: 0;
-}
-
 @layer base {
-  :root,
-  [data-appearance-theme="dark"] {
+  :root {
+    /* Compatibility aliases for existing CSS modules. */
     --app-bg: var(--color-base-300);
     --app-bg-soft: var(--color-base-200);
     --app-surface: var(--color-base-100);
@@ -58,14 +22,13 @@
     --app-text-faint: color-mix(in srgb, var(--color-neutral-content) 72%, transparent);
     --app-accent: var(--color-primary);
     --app-accent-hover: var(--color-secondary);
-    --app-accent-soft: rgba(37, 99, 235, 0.18);
+    --app-accent-soft: color-mix(in srgb, var(--color-primary) 18%, transparent);
     --app-accent-contrast: var(--color-primary-content);
     --app-success: var(--color-success);
     --app-success-hover: color-mix(in srgb, var(--color-success) 82%, white);
     --app-warning: var(--color-warning);
     --app-danger: var(--color-error);
 
-    /* Compatibility aliases for ported feature CSS modules. */
     --top-nav-height: 60px;
     --left-nav-width: 260px;
     --page-padding: 25px;
@@ -73,8 +36,8 @@
     --bg-elevated: var(--app-bg-soft);
     --bg-surface: var(--app-surface);
     --bg-surface-2: var(--app-surface-muted);
-    --bg-hover: rgba(255, 255, 255, 0.06);
-    --bg-active: rgba(255, 255, 255, 0.1);
+    --bg-hover: color-mix(in srgb, var(--color-base-content) 6%, transparent);
+    --bg-active: color-mix(in srgb, var(--color-base-content) 10%, transparent);
     --bg-selected: var(--app-accent-soft);
     --border-subtle: color-mix(in srgb, var(--app-border-soft) 70%, transparent);
     --border-default: var(--app-border-soft);
@@ -88,7 +51,7 @@
     --success: var(--app-success-hover);
     --warning: var(--app-warning);
     --danger: var(--app-danger);
-    --danger-muted: #f87171;
+    --danger-muted: var(--color-error);
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 14px;
@@ -114,53 +77,7 @@
   }
 }
 
-@layer components {
-  .surface-card {
-    @apply rounded-lg bg-gray-800 p-2.5 shadow-md md:p-3;
-  }
-}
-
 @layer utilities {
-  [data-appearance-theme] .bg-gray-900,
-  [data-appearance-theme] .bg-slate-900 {
-    background-color: var(--app-bg);
-  }
-
-  [data-appearance-theme] .bg-slate-950,
-  [data-appearance-theme] .bg-black {
-    background-color: var(--app-panel-deep);
-  }
-
-  [data-appearance-theme] .bg-slate-800,
-  [data-appearance-theme] .bg-gray-800 {
-    background-color: var(--app-surface);
-  }
-
-  [data-appearance-theme] .bg-slate-700,
-  [data-appearance-theme] .bg-gray-700,
-  [data-appearance-theme] .bg-slate-600 {
-    background-color: var(--app-surface-muted);
-  }
-
-  [data-appearance-theme] .text-white,
-  [data-appearance-theme] .text-slate-100,
-  [data-appearance-theme] .text-slate-200 {
-    color: var(--app-text);
-  }
-
-  [data-appearance-theme] .text-slate-300,
-  [data-appearance-theme] .text-slate-400,
-  [data-appearance-theme] .text-gray-400,
-  [data-appearance-theme] .text-slate-500 {
-    color: var(--app-text-muted);
-  }
-
-  [data-appearance-theme] .border-slate-600,
-  [data-appearance-theme] .border-slate-700,
-  [data-appearance-theme] .border-slate-800 {
-    border-color: var(--app-border);
-  }
-
   .no-scrollbar {
     scrollbar-width: none;
   }
@@ -171,6 +88,6 @@
 
   .yes-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: var(--app-accent) transparent;
+    scrollbar-color: var(--color-primary) transparent;
   }
 }
