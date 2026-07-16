@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using NzbWebDAV.Database.Models.Metrics;
 
 namespace NzbWebDAV.Services;
 
@@ -27,7 +28,13 @@ public class ActiveReadRegistry
     private long _totalBytesServed;
     public long TotalBytesServed => Interlocked.Read(ref _totalBytesServed);
 
-    public Guid GetOrCreate(string path, string clientKey, string fileName, long? fileSize)
+    public Guid GetOrCreate(
+        string path,
+        string clientKey,
+        string fileName,
+        long? fileSize,
+        string? clientUserAgent = null,
+        string? clientIp = null)
     {
         var key = BuildKey(path, clientKey);
         var now = DateTimeOffset.UtcNow;
@@ -39,6 +46,8 @@ public class ActiveReadRegistry
             {
                 existing.LastActivityAt = now;
                 if (fileSize is { } size) existing.FileSize = size;
+                if (!string.IsNullOrEmpty(clientUserAgent)) existing.ClientUserAgent = clientUserAgent;
+                if (!string.IsNullOrEmpty(clientIp)) existing.ClientIp = clientIp;
                 return existingId;
             }
 
@@ -50,6 +59,8 @@ public class ActiveReadRegistry
                 FileName = fileName,
                 FileSize = fileSize,
                 ClientKey = clientKey,
+                ClientUserAgent = clientUserAgent,
+                ClientIp = clientIp,
                 StartedAt = now,
                 LastActivityAt = now,
             };
@@ -78,6 +89,22 @@ public class ActiveReadRegistry
                 Interlocked.Exchange(ref entry.CurrentOffset, currentOffset.Value);
         }
     }
+
+    public void AddBytesFetched(Guid id, long bytes)
+    {
+        if (bytes <= 0) return;
+        if (_entries.TryGetValue(id, out var entry))
+            Interlocked.Add(ref entry.BytesFetched, bytes);
+    }
+
+    public void SetEndReason(Guid id, ReadSession.EndReasonCode reason)
+    {
+        if (_entries.TryGetValue(id, out var entry))
+            entry.EndReason = reason;
+    }
+
+    public long GetBytesRead(Guid id)
+        => _entries.TryGetValue(id, out var entry) ? Interlocked.Read(ref entry.BytesRead) : 0;
 
     /// <summary>
     /// Update the user-facing metadata on an existing session. Used once the
@@ -137,9 +164,13 @@ public class ActiveReadRegistry
         public string FileName { get; set; } = "";
         public long? FileSize { get; set; }
         public string ClientKey { get; init; } = "";
+        public string? ClientUserAgent { get; set; }
+        public string? ClientIp { get; set; }
         public DateTimeOffset StartedAt { get; init; }
         public DateTimeOffset LastActivityAt { get; set; }
         public long BytesRead;
+        public long BytesFetched;
+        public ReadSession.EndReasonCode EndReason { get; set; } = ReadSession.EndReasonCode.Completed;
         /// <summary>
         /// Most recent absolute file offset the player has been served (i.e. the
         /// "where the read head is" position). Updated after every chunk so the

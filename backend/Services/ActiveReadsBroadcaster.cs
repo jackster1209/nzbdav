@@ -68,11 +68,11 @@ public class ActiveReadsBroadcaster(
                 Path = entry.Path,
                 FileSize = entry.FileSize,
                 BytesServed = Interlocked.Read(ref entry.BytesRead),
-                BytesFetched = 0, // not measured per-session yet (bytes stream after fetch attribution)
+                BytesFetched = Interlocked.Read(ref entry.BytesFetched),
                 FailoverSaves = (int)Math.Min(int.MaxValue, failoverSaves),
-                ClientUserAgent = null,
-                ClientIp = null,
-                EndReason = ReadSession.EndReasonCode.Completed,
+                ClientUserAgent = entry.ClientUserAgent,
+                ClientIp = entry.ClientIp,
+                EndReason = entry.EndReason,
             });
         }
 

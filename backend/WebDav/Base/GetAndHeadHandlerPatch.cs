@@ -6,7 +6,9 @@ using NWebDav.Server.Helpers;
 using NWebDav.Server.Props;
 using NWebDav.Server.Stores;
 using NzbWebDAV.Clients.Usenet;
+using NzbWebDAV.Database.Models.Metrics;
 using NzbWebDAV.Services;
+using NzbWebDAV.Services.StreamTrace;
 using NzbWebDAV.WebDav.Requests;
 
 namespace NzbWebDAV.WebDav.Base;
@@ -26,15 +28,18 @@ public class GetAndHeadHandlerPatch : IRequestHandler
     private readonly IStore _store;
     private readonly ProviderUsageTracker _providerUsageTracker;
     private readonly ActiveReadRegistry _activeReadRegistry;
+    private readonly StreamTraceBuffer _streamTrace;
 
     public GetAndHeadHandlerPatch(
         IStore store,
         ProviderUsageTracker providerUsageTracker,
-        ActiveReadRegistry activeReadRegistry)
+        ActiveReadRegistry activeReadRegistry,
+        StreamTraceBuffer streamTrace)
     {
         _store = store;
         _providerUsageTracker = providerUsageTracker;
         _activeReadRegistry = activeReadRegistry;
+        _streamTrace = streamTrace;
     }
 
     /// <summary>
@@ -186,7 +191,9 @@ public class GetAndHeadHandlerPatch : IRequestHandler
                         RangeContext.SetReadBudget(null);
 
                     var path = request.GetUri().AbsolutePath;
-                    var clientKey = $"{httpContext.Connection.RemoteIpAddress}|{request.Headers.UserAgent}";
+                    var userAgent = request.Headers.UserAgent.ToString();
+                    var clientIp = httpContext.Connection.RemoteIpAddress?.ToString();
+                    var clientKey = $"{clientIp}|{userAgent}";
                     // DatabaseStoreIdFile.Name returns the GUID (it backs rclone symlink
                     // targets), so prefer FriendlyName when that's what we got.
                     var fileName = entry switch
@@ -195,12 +202,30 @@ public class GetAndHeadHandlerPatch : IRequestHandler
                         _ => !string.IsNullOrEmpty(entry.Name) ? entry.Name : System.IO.Path.GetFileName(path)
                     };
                     var sessionId = _activeReadRegistry.GetOrCreate(
-                        path, clientKey, fileName, stream.CanSeek ? stream.Length : null);
+                        path, clientKey, fileName, stream.CanSeek ? stream.Length : null,
+                        userAgent, clientIp);
+                    _streamTrace.RangeOpen(
+                        sessionId, path, request.Method, copyStart, copyEnd,
+                        stream.CanSeek ? stream.Length : null, userAgent, clientIp);
                     using var scope = _providerUsageTracker.BeginScope(sessionId);
                     using var metricsScope = MultiProviderNntpClient.BeginReadSessionScope(sessionId);
-                    await CopyToAsync(stream, response.Body, copyStart, copyEnd,
-                        (n, pos) => _activeReadRegistry.Touch(sessionId, n, pos),
-                        httpContext.RequestAborted).ConfigureAwait(false);
+                    try
+                    {
+                        await CopyToAsync(stream, response.Body, copyStart, copyEnd,
+                            (n, pos) => _activeReadRegistry.Touch(sessionId, n, pos),
+                            httpContext.RequestAborted).ConfigureAwait(false);
+                        FinishRange(sessionId, ReadSession.EndReasonCode.Completed);
+                    }
+                    catch (OperationCanceledException) when (httpContext.RequestAborted.IsCancellationRequested)
+                    {
+                        FinishRange(sessionId, ReadSession.EndReasonCode.Aborted);
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        FinishRange(sessionId, ReadSession.EndReasonCode.Error, ex.Message);
+                        throw;
+                    }
                 }
             }
             else
@@ -210,6 +235,12 @@ public class GetAndHeadHandlerPatch : IRequestHandler
             }
         }
         return true;
+    }
+
+    private void FinishRange(Guid sessionId, ReadSession.EndReasonCode reason, string? message = null)
+    {
+        _activeReadRegistry.SetEndReason(sessionId, reason);
+        _streamTrace.RangeEnd(sessionId, reason, _activeReadRegistry.GetBytesRead(sessionId), message);
     }
 
     private async Task CopyToAsync(

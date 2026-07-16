@@ -7,9 +7,11 @@ using NzbWebDAV.Clients.Usenet;
 using NzbWebDAV.Clients.Usenet.Contexts;
 using NzbWebDAV.Config;
 using NzbWebDAV.Database;
+using NzbWebDAV.Database.Models.Metrics;
 using NzbWebDAV.Extensions;
 using NzbWebDAV.Par2Recovery;
 using NzbWebDAV.Services;
+using NzbWebDAV.Services.StreamTrace;
 using NzbWebDAV.Utils;
 using NzbWebDAV.WebDav;
 using NzbWebDAV.WebDav.Requests;
@@ -23,7 +25,8 @@ public class GetWebdavItemController(
     ConfigManager configManager,
     ProviderUsageTracker providerUsageTracker,
     ActiveReadRegistry activeReadRegistry,
-    CandidateNegativeCache negativeCache
+    CandidateNegativeCache negativeCache,
+    StreamTraceBuffer streamTrace
 ) : ControllerBase
 {
     private async Task<Stream> GetWebdavItem(GetWebdavItemRequest request)
@@ -125,11 +128,13 @@ public class GetWebdavItemController(
             Response.Headers["Content-Range"] = $"bytes {rangeStart}-{end}/{fileSize}";
             Response.Headers["Content-Length"] = chunkSize.ToString();
             Response.StatusCode = 206;
+            HttpContext.Items["effectiveRangeEnd"] = end;
         }
         else
         {
             RangeContext.SetReadBudget(null);
             Response.Headers["Content-Length"] = fileSize.ToString();
+            HttpContext.Items["effectiveRangeEnd"] = (long?)null;
         }
 
         return stream;
@@ -147,13 +152,45 @@ public class GetWebdavItemController(
             using var scope = providerUsageTracker.BeginScope(sessionId);
             using var metricsScope = MultiProviderNntpClient.BeginReadSessionScope(sessionId);
             await using var response = await GetWebdavItem(request);
+            if (response == Stream.Null)
+                return;
             var effectiveStart = (long)(HttpContext.Items["effectiveRangeStart"] ?? 0L);
-            await CopyAndReportAsync(response, Response.Body, sessionId, effectiveStart, HttpContext.RequestAborted);
+            var rangeEnd = HttpContext.Items["effectiveRangeEnd"] as long?;
+            streamTrace.RangeOpen(
+                sessionId,
+                request.Item,
+                "GET",
+                effectiveStart,
+                rangeEnd,
+                response.CanSeek ? response.Length : null,
+                Request.Headers.UserAgent.ToString(),
+                HttpContext.Connection.RemoteIpAddress?.ToString());
+            try
+            {
+                await CopyAndReportAsync(response, Response.Body, sessionId, effectiveStart, HttpContext.RequestAborted);
+                FinishRange(sessionId, ReadSession.EndReasonCode.Completed);
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                FinishRange(sessionId, ReadSession.EndReasonCode.Aborted);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                FinishRange(sessionId, ReadSession.EndReasonCode.Error, ex.Message);
+                throw;
+            }
         }
         catch (UnauthorizedAccessException)
         {
             Response.StatusCode = 401;
         }
+    }
+
+    private void FinishRange(Guid sessionId, ReadSession.EndReasonCode reason, string? message = null)
+    {
+        activeReadRegistry.SetEndReason(sessionId, reason);
+        streamTrace.RangeEnd(sessionId, reason, activeReadRegistry.GetBytesRead(sessionId), message);
     }
 
     private async Task CopyAndReportAsync(Stream src, Stream dest, Guid sessionId, long startOffset, CancellationToken ct)
@@ -219,8 +256,10 @@ public class GetWebdavItemController(
         // Provisional name from the URL path. GetWebdavItem replaces it with
         // item.Name (the real human-readable filename) once the store lookup runs.
         var fileName = Path.GetFileName(itemPath);
-        var clientKey = $"{HttpContext.Connection.RemoteIpAddress}|{Request.Headers.UserAgent}";
-        return activeReadRegistry.GetOrCreate(itemPath, clientKey, fileName, fileSize: null);
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var clientKey = $"{clientIp}|{userAgent}";
+        return activeReadRegistry.GetOrCreate(itemPath, clientKey, fileName, fileSize: null, userAgent, clientIp);
     }
 
     [HttpHead]
