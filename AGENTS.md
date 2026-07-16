@@ -171,11 +171,22 @@ All commits **must** follow [Conventional Commits](https://www.conventionalcommi
 
 ### Types
 
-| Type | Release notes | When to use |
-|------|---------------|-------------|
-| `feat` | **Features** | New user-visible behavior |
-| `fix` | **Bug Fixes** | Bug fixes, regressions, compatibility fixes |
-| `chore` | *(usually omitted)* | Tooling, refactors, release automation, non-user-facing maintenance |
+Prefer the most specific type so release-please places the entry in the right changelog section (see `.release-please-config.json`).
+
+| Type | Changelog section | When to use |
+|------|-------------------|-------------|
+| `feat!` / `BREAKING CHANGE` footer | Breaking Changes | User-visible breaking changes |
+| `feat` | Features | New user-visible behavior |
+| `fix` | Bug Fixes | Bug fixes, regressions, compatibility fixes |
+| `perf` | Performance Improvements | Performance-only improvements |
+| `chore` | Other Changes | Tooling, release automation, non-user-facing maintenance |
+| `docs` | Documentation | README, docs/, AGENTS.md |
+| `ci` | CI/CD Pipeline | GitHub Actions / CI only |
+| `test` / `tests` | Testing | Tests only (no product behavior change) |
+| `refactor` | Refactors | Internal restructuring without behavior change |
+| `style` | Styles | Formatting / UI chrome with no behavior change (prefer `feat(ui)` / `fix(ui)` when behavior changes) |
+| `revert` | Reverts | Reverts of prior commits |
+| `build` | Build System | Dockerfile, build scripts, packaging (not CI workflows) |
 
 Use `fix(deps)` / `chore(deps)` for dependency bumps (Dependabot follows this).
 
@@ -211,7 +222,11 @@ fix(webdav): return 416 for range requests past content boundary
 fix(nntp): skip failing providers with circuit breaker
 feat(ui): add setting to schedule RemoveOrphanedFiles task
 fix(deps): bump vite in the frontend vite group
-chore(ci): run pre-release image builds on demand
+ci: run pre-release image builds on demand
+docs: expand commit type guidance for release-please sections
+perf(nntp): reduce connection acquire latency under load
+refactor(queue): extract rar aggregator helpers
+test(webdav): cover range requests past content boundary
 ```
 
 ### Do not use
@@ -273,7 +288,7 @@ Docker image builds are shared via the reusable workflow. Branch and dependabot 
 ## Releases
 
 - Merging to `main` triggers **release-please** (`.github/workflows/release.yml`) which maintains `CHANGELOG.md` + `version.txt` and creates GitHub releases.
-- `feat` → minor bump; `fix` → patch bump (pre-1.0 rules in `.release-please-config.json`).
+- `feat` → minor bump; `fix` → patch bump (pre-1.0 rules in `.release-please-config.json`). Other conventional types (`perf`, `chore`, `docs`, `ci`, `test`, `refactor`, `style`, `revert`, `build`) appear in changelog sections but do not bump the version by themselves.
 - When release-please creates a release on merge to `main`, the same workflow run builds and pushes Docker images to `ghcr.io` (`latest`, `dev`, exact `vMAJOR.MINOR.PATCH`, and rolling `vMAJOR` / `vMAJOR.MINOR` tags).
 - To republish images for an existing release (e.g. after fixing CI), run **Release** workflow manually with the `version` input (e.g. `0.6.5`).
 - Between releases, update the pre-release Docker image (`:dev`) on demand via **Actions → Pre-release → Run workflow**; the next release moves `:dev` to that release.
