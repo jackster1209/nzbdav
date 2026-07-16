@@ -117,11 +117,12 @@ public class RemoveUnlinkedFilesTask(
         }
 
         // Remove duplicates and add primary key index.
-        // Create a new table with unique constraint, copy distinct values, then swap.
+        // COLLATE NOCASE on the column (not predicates) so the PK remains seekable while
+        // matching uppercase TMP_LINKED_FILES ids to lowercase migration-seeded DavItems.Id.
         Report($"Indexing {scannedCount} linked files...");
         await dbContext.Database.ExecuteSqlRawAsync(
             """
-            CREATE TABLE TMP_LINKED_FILES_UNIQUE (Id TEXT NOT NULL PRIMARY KEY);
+            CREATE TABLE TMP_LINKED_FILES_UNIQUE (Id TEXT NOT NULL COLLATE NOCASE PRIMARY KEY);
             INSERT OR IGNORE INTO TMP_LINKED_FILES_UNIQUE (Id) SELECT Id FROM TMP_LINKED_FILES;
             DROP TABLE TMP_LINKED_FILES;
             ALTER TABLE TMP_LINKED_FILES_UNIQUE RENAME TO TMP_LINKED_FILES;
@@ -270,16 +271,16 @@ public class RemoveUnlinkedFilesTask(
         await using var dbContext = CreateContext();
         var usenetFileType = (int)DavItem.ItemType.UsenetFile;
 
-        // LEFT JOIN is equivalent to the NOT IN subquery used by RemoveUnlinkedItems /
+        // LEFT JOIN is equivalent to the NOT EXISTS used by RemoveUnlinkedItems /
         // DryRunIdentifyUnlinkedFiles; CountDeletableItems mirrors these predicates without
         // the link join so the safety ratio compares the same population.
-        // COLLATE NOCASE: TMP_LINKED_FILES stores uppercase Guids while some DavItems.Id
-        // rows are lowercase (migration-seeded); a case-sensitive miss would delete linked files.
+        // Join as t.Id = i.Id so SQLite inherits NOCASE from TMP_LINKED_FILES (left operand)
+        // and can seek the PK; i.Id = t.Id would use BINARY and miss both index and casing.
         var count = await dbContext.Database
             .SqlQuery<int>(
                 $"""
                  SELECT COUNT(i.Id) AS Value FROM DavItems i
-                 LEFT JOIN TMP_LINKED_FILES t ON i.Id = t.Id COLLATE NOCASE
+                 LEFT JOIN TMP_LINKED_FILES t ON t.Id = i.Id
                  WHERE i.Type = {usenetFileType}
                    AND i.HistoryItemId IS NULL
                    AND i.CreatedAt < {createdBefore}
@@ -301,8 +302,8 @@ public class RemoveUnlinkedFilesTask(
 
         while (true)
         {
-            // Select items to delete (batch of 100). NOT EXISTS + COLLATE NOCASE so a
-            // lowercase DavItems.Id still matches an uppercase TMP_LINKED_FILES row.
+            // Select items to delete (batch of 100). t.Id on the left inherits NOCASE from
+            // the TMP_LINKED_FILES PK so lowercase DavItems.Id still match uppercase links.
             var itemsToDelete = await dbContext.Database
                 .SqlQuery<UnlinkedItemInfo>(
                     $"""
@@ -312,7 +313,7 @@ public class RemoveUnlinkedFilesTask(
                        AND CreatedAt < {createdBefore}
                        AND NOT EXISTS (
                            SELECT 1 FROM TMP_LINKED_FILES t
-                           WHERE t.Id = DavItems.Id COLLATE NOCASE
+                           WHERE t.Id = DavItems.Id
                        )
                      LIMIT 100
                      """)
@@ -492,7 +493,7 @@ public class RemoveUnlinkedFilesTask(
                        AND Id > {lastId}
                        AND NOT EXISTS (
                            SELECT 1 FROM TMP_LINKED_FILES t
-                           WHERE t.Id = DavItems.Id COLLATE NOCASE
+                           WHERE t.Id = DavItems.Id
                        )
                      ORDER BY Id
                      LIMIT 100
