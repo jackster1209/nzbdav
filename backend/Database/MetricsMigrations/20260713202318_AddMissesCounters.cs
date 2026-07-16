@@ -31,73 +31,16 @@ namespace NzbWebDAV.Database.MetricsMigrations
                 nullable: false,
                 defaultValue: 0L);
 
-            // Prior Errors counted Missing as failures. Split going forward:
-            // Misses = Status Missing (1); Errors = hard failures (Status NOT IN Ok/Missing).
-            var cutoff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 24L * 60 * 60 * 1000;
-
-            // Older than raw SegmentFetches retention: treat prior Errors as Misses.
+            // Prior Errors counted Missing as failures. Existing rollups cannot split
+            // those values accurately without scanning the large raw SegmentFetches
+            // table, which can make startup migrations effectively unbounded. Treat
+            // historical Errors as Misses; new rollups track the two counters exactly.
             migrationBuilder.Sql(
-                $"UPDATE ThroughputMinutes SET Misses = Errors, Errors = 0 WHERE Minute < {cutoff};");
+                "UPDATE ThroughputMinutes SET Misses = Errors, Errors = 0;");
             migrationBuilder.Sql(
-                $"UPDATE ProviderMinutes SET Misses = Errors, Errors = 0 WHERE Minute < {cutoff};");
+                "UPDATE ProviderMinutes SET Misses = Errors, Errors = 0;");
             migrationBuilder.Sql(
-                $"UPDATE ProviderHourly SET Misses = Errors, Errors = 0 WHERE Hour < {cutoff};");
-
-            // Last 24h: recompute accurately from raw SegmentFetches.
-            migrationBuilder.Sql(
-                $"""
-                UPDATE ThroughputMinutes
-                SET
-                  Misses = COALESCE((
-                    SELECT COUNT(*) FROM SegmentFetches sf
-                    WHERE sf.At >= ThroughputMinutes.Minute
-                      AND sf.At < ThroughputMinutes.Minute + 60000
-                      AND sf.Status = 1), 0),
-                  Errors = COALESCE((
-                    SELECT COUNT(*) FROM SegmentFetches sf
-                    WHERE sf.At >= ThroughputMinutes.Minute
-                      AND sf.At < ThroughputMinutes.Minute + 60000
-                      AND sf.Status NOT IN (0, 1)), 0)
-                WHERE Minute >= {cutoff};
-                """);
-
-            migrationBuilder.Sql(
-                $"""
-                UPDATE ProviderMinutes
-                SET
-                  Misses = COALESCE((
-                    SELECT COUNT(*) FROM SegmentFetches sf
-                    WHERE sf.At >= ProviderMinutes.Minute
-                      AND sf.At < ProviderMinutes.Minute + 60000
-                      AND sf.Provider = ProviderMinutes.Provider
-                      AND sf.Status = 1), 0),
-                  Errors = COALESCE((
-                    SELECT COUNT(*) FROM SegmentFetches sf
-                    WHERE sf.At >= ProviderMinutes.Minute
-                      AND sf.At < ProviderMinutes.Minute + 60000
-                      AND sf.Provider = ProviderMinutes.Provider
-                      AND sf.Status NOT IN (0, 1)), 0)
-                WHERE Minute >= {cutoff};
-                """);
-
-            migrationBuilder.Sql(
-                $"""
-                UPDATE ProviderHourly
-                SET
-                  Misses = COALESCE((
-                    SELECT COUNT(*) FROM SegmentFetches sf
-                    WHERE sf.At >= ProviderHourly.Hour
-                      AND sf.At < ProviderHourly.Hour + 3600000
-                      AND sf.Provider = ProviderHourly.Provider
-                      AND sf.Status = 1), 0),
-                  Errors = COALESCE((
-                    SELECT COUNT(*) FROM SegmentFetches sf
-                    WHERE sf.At >= ProviderHourly.Hour
-                      AND sf.At < ProviderHourly.Hour + 3600000
-                      AND sf.Provider = ProviderHourly.Provider
-                      AND sf.Status NOT IN (0, 1)), 0)
-                WHERE Hour >= {cutoff};
-                """);
+                "UPDATE ProviderHourly SET Misses = Errors, Errors = 0;");
         }
 
         /// <inheritdoc />
