@@ -37,45 +37,72 @@ export function HealthStats({ stats }: HealthStatsProps) {
     return (
         <section className="card w-full border border-base-content/10 bg-base-100 shadow-sm">
             <div className="card-body gap-4 p-4 md:p-6">
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="card-title text-xl">Overview</h2>
-                    <Badge className="badge-ghost">Last 30 Days</Badge>
+                    <Badge className="badge-ghost badge-sm">Last 30 days</Badge>
                 </div>
 
-                <div className="stats stats-vertical w-full shadow sm:stats-horizontal">
-                    <div className="stat place-items-center">
-                        <div className="stat-figure text-base-content/50">
-                            <Icon name="fact_check" className="!text-[22px]" />
-                        </div>
-                        <div className="stat-title">Total Checked</div>
-                        <div className="stat-value font-mono text-3xl md:text-4xl">{totalChecked}</div>
-                    </div>
-
-                    <div className="stat place-items-center">
-                        <div className="stat-figure text-success">
-                            <Icon name="check_circle" filled className="!text-[22px]" />
-                        </div>
-                        <div className="stat-title">Healthy ({getPercentage(healthy)}%)</div>
-                        <div className="stat-value font-mono text-3xl text-success md:text-4xl">{healthy}</div>
-                    </div>
-
-                    <div className="stat place-items-center">
-                        <div className="stat-figure text-info">
-                            <Icon name="build_circle" filled className="!text-[22px]" />
-                        </div>
-                        <div className="stat-title">Repaired ({getPercentage(repaired)}%)</div>
-                        <div className="stat-value font-mono text-3xl text-info md:text-4xl">{repaired}</div>
-                    </div>
-
-                    <div className="stat place-items-center">
-                        <div className="stat-figure text-error">
-                            <Icon name="delete" filled className="!text-[22px]" />
-                        </div>
-                        <div className="stat-title">Deleted ({getPercentage(deleted)}%)</div>
-                        <div className="stat-value font-mono text-3xl text-error md:text-4xl">{deleted}</div>
-                    </div>
+                <div className="stats stats-vertical w-full bg-base-200/40 sm:stats-horizontal">
+                    <Stat
+                        icon="fact_check"
+                        iconClassName="text-base-content/50"
+                        title="Total checked"
+                        value={totalChecked}
+                    />
+                    <Stat
+                        icon="check_circle"
+                        iconClassName="text-success"
+                        iconFilled
+                        title={`Healthy (${getPercentage(healthy)}%)`}
+                        value={healthy}
+                        valueClassName="text-success"
+                    />
+                    <Stat
+                        icon="build_circle"
+                        iconClassName="text-info"
+                        iconFilled
+                        title={`Repaired (${getPercentage(repaired)}%)`}
+                        value={repaired}
+                        valueClassName="text-info"
+                    />
+                    <Stat
+                        icon="delete"
+                        iconClassName="text-error"
+                        iconFilled
+                        title={`Deleted (${getPercentage(deleted)}%)`}
+                        value={deleted}
+                        valueClassName="text-error"
+                    />
                 </div>
             </div>
         </section>
+    );
+}
+
+function Stat({
+    icon,
+    iconClassName,
+    iconFilled,
+    title,
+    value,
+    valueClassName = "",
+}: {
+    icon: string;
+    iconClassName: string;
+    iconFilled?: boolean;
+    title: string;
+    value: number;
+    valueClassName?: string;
+}) {
+    return (
+        <div className="stat place-items-center py-4">
+            <div className={`stat-figure ${iconClassName}`}>
+                <Icon name={icon} filled={iconFilled} className="!text-[22px]" />
+            </div>
+            <div className="stat-title text-xs">{title}</div>
+            <div className={`stat-value font-mono text-3xl tabular-nums md:text-4xl ${valueClassName}`}>
+                {value}
+            </div>
+        </div>
     );
 }

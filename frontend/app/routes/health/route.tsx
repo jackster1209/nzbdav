@@ -120,24 +120,17 @@ export default function Health({ loaderData }: Route.ComponentProps) {
     useWebsocketTopics(topicSubscriptions, onWebsocketMessage);
 
     return (
-        <div className="flex min-h-full min-w-full flex-col gap-8 px-4 py-4 text-sm text-base-content/80 md:px-8">
+        <div className="flex min-h-full min-w-full flex-col gap-8 px-4 py-4 text-sm text-base-content md:px-8">
             <HealthStats stats={historyStats} />
             {isEnabled && uncheckedCount > 20 &&
-                <Alert className="flex gap-3 p-3" variant="warning">
-                    <Icon name="warning" filled className="mt-0.5 shrink-0 !text-[20px]" />
+                <Alert className="alert-soft" variant="warning">
+                    <Icon name="warning" filled className="shrink-0 !text-[20px]" />
                     <div>
-                        <div className="font-semibold">Attention</div>
-                        <ul className="mb-0 mt-1 list-disc space-y-1 pl-4">
-                            <li>
-                                You have ~{uncheckedCount} files whose health has never been determined.
-                            </li>
-                            <li>
-                                The queue will run an initial health check of these files.
-                            </li>
-                            <li>
-                                Under normal operation, health checks will occur much less frequently.
-                            </li>
-                        </ul>
+                        <div className="font-semibold">Initial health scan pending</div>
+                        <p className="mt-1 text-xs leading-relaxed text-base-content/70">
+                            About {uncheckedCount} files have never been health-checked. The queue will
+                            run an initial scan; later checks are much less frequent.
+                        </p>
                     </div>
                 </Alert>
             }
