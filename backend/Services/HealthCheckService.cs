@@ -670,6 +670,20 @@ public class HealthCheckService : BackgroundService
         return result;
     }
 
+    public static void AddMissingSegmentIds(IEnumerable<string> segmentIds)
+    {
+        lock (_missingSegmentIds)
+        {
+            foreach (var segmentId in segmentIds)
+            {
+                if (_missingSegmentIds.Add(segmentId))
+                    _missingSegmentOrder.Enqueue(segmentId);
+                while (_missingSegmentIds.Count > MaximumMissingSegmentIds)
+                    _missingSegmentIds.Remove(_missingSegmentOrder.Dequeue());
+            }
+        }
+    }
+
     public static void CheckCachedMissingSegmentIds(IEnumerable<string> segmentIds)
     {
         lock (_missingSegmentIds)

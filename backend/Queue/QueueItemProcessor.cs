@@ -227,6 +227,12 @@ public class QueueItemProcessor(
             .ToList();
         if (importantFilesMissing.Count > 0)
         {
+            // Remember the missing first segments so retries of this item and re-grabs
+            // of the same release fail in milliseconds via the step-0 precheck instead
+            // of re-verifying every article across all providers.
+            HealthCheckService.AddMissingSegmentIds(
+                importantFilesMissing.Select(x => x.NzbFile.Segments[0].MessageId));
+
             var fileNames = string.Join(", ", importantFilesMissing
                 .Select(x => string.IsNullOrEmpty(x.FileName) ? x.NzbFile.Subject : x.FileName)
                 .Take(3));
