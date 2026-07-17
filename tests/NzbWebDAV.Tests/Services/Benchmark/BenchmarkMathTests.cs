@@ -109,16 +109,18 @@ public class BenchmarkMathTests
     }
 
     [Theory]
-    [InlineData(0.1, false, false, true, "high")]
-    [InlineData(0.2, false, false, true, "medium")]
-    [InlineData(0.1, true, false, true, "medium")]
-    [InlineData(0.35, false, false, true, "low")]
-    [InlineData(0.1, false, true, true, "low")]
-    [InlineData(0.1, false, false, false, "low")]
+    [InlineData(0.1, false, false, false, true, "high")]
+    [InlineData(0.2, false, false, false, true, "medium")]
+    [InlineData(0.1, true, false, false, true, "medium")]
+    [InlineData(0.35, false, false, false, true, "low")]
+    [InlineData(0.1, false, true, true, true, "low")]
+    [InlineData(0.1, false, true, false, true, "medium")]
+    [InlineData(0.1, false, false, false, false, "low")]
     public void ComputeConfidence_ReflectsMeasurementQuality(
         double cv,
         bool wrappedPool,
         bool budgetLimited,
+        bool stillClimbing,
         bool throughputTested,
         string expected)
     {
@@ -127,9 +129,77 @@ public class BenchmarkMathTests
             ThroughputTested = throughputTested,
             WrappedPool = wrappedPool,
             BudgetLimited = budgetLimited,
+            StillClimbing = stillClimbing,
+            RecommendedConnections = 1,
             Sweep = [new BenchmarkSweepPoint { Connections = 1, MbPerSec = 10, Cv = cv }],
         };
 
         Assert.Equal(expected, UsenetBenchmarkService.ComputeConfidence(result));
+    }
+
+    [Fact]
+    public void ComputeConfidence_IgnoresNoisyLowConnectionPointNearKnee()
+    {
+        var result = new BenchmarkResult
+        {
+            ThroughputTested = true,
+            RecommendedConnections = 16,
+            Sweep =
+            [
+                new BenchmarkSweepPoint { Connections = 1, MbPerSec = 10, Cv = 0.8 },
+                new BenchmarkSweepPoint { Connections = 8, MbPerSec = 80, Cv = 0.05 },
+                new BenchmarkSweepPoint { Connections = 16, MbPerSec = 100, Cv = 0.08 },
+            ],
+        };
+
+        Assert.Equal("high", UsenetBenchmarkService.ComputeConfidence(result));
+    }
+
+    [Fact]
+    public void ComputeConfidence_TightConfirmOverridesWrappedPoolCap()
+    {
+        var result = new BenchmarkResult
+        {
+            ThroughputTested = true,
+            WrappedPool = true,
+            ConfirmDeltaPct = 3,
+            RecommendedConnections = 8,
+            Sweep = [new BenchmarkSweepPoint { Connections = 8, MbPerSec = 40, Cv = 0.05 }],
+        };
+
+        Assert.Equal("high", UsenetBenchmarkService.ComputeConfidence(result));
+    }
+
+    [Fact]
+    public void ComputeConfidence_LooseConfirmDowngradesOneLevel()
+    {
+        var result = new BenchmarkResult
+        {
+            ThroughputTested = true,
+            ConfirmDeltaPct = 25,
+            RecommendedConnections = 8,
+            Sweep = [new BenchmarkSweepPoint { Connections = 8, MbPerSec = 40, Cv = 0.05 }],
+        };
+
+        Assert.Equal("medium", UsenetBenchmarkService.ComputeConfidence(result));
+    }
+
+    [Fact]
+    public void ComputeConfidence_BudgetLimitedWithoutClimbingCapsAtMedium()
+    {
+        var result = new BenchmarkResult
+        {
+            ThroughputTested = true,
+            BudgetLimited = true,
+            StillClimbing = false,
+            RecommendedConnections = 8,
+            Sweep =
+            [
+                new BenchmarkSweepPoint { Connections = 4, MbPerSec = 38, Cv = 0.05 },
+                new BenchmarkSweepPoint { Connections = 8, MbPerSec = 40, Cv = 0.05 },
+            ],
+        };
+
+        Assert.Equal("medium", UsenetBenchmarkService.ComputeConfidence(result));
     }
 }

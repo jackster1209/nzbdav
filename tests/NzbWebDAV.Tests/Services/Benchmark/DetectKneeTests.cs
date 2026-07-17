@@ -62,6 +62,29 @@ public class DetectKneeTests
         Assert.Contains(warnings, warning => warning.Contains("noisy", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void DetectKnee_SetsStillClimbingWhenPeakKeepsRising()
+    {
+        var sweep = Sweep((1, 10), (2, 20), (4, 40), (8, 80), (16, 120));
+        var warnings = new List<string>();
+
+        var knee = UsenetBenchmarkService.DetectKnee(sweep, null, warnings, out var stillClimbing);
+
+        Assert.Equal(16, knee);
+        Assert.True(stillClimbing);
+        Assert.Contains(warnings, warning => warning.Contains("still climbing", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void DetectKnee_StillClimbingFalseOnPlateau()
+    {
+        var sweep = Sweep((1, 10), (2, 20), (4, 35), (8, 40), (16, 41));
+
+        UsenetBenchmarkService.DetectKnee(sweep, null, [], out var stillClimbing);
+
+        Assert.False(stillClimbing);
+    }
+
     private static List<BenchmarkSweepPoint> Sweep(params (int Connections, double MbPerSec)[] points) =>
         points.Select(point => new BenchmarkSweepPoint
         {
