@@ -27,7 +27,7 @@ const USAGE_POLL_INTERVAL_MS = 10_000;
 
 // Mirrors the camelCase JSON the backend benchmark endpoint + websocket emit.
 type BenchmarkLatency = { minMs: number; avgMs: number; samples: number };
-type BenchmarkSweepPoint = { connections: number; mbPerSec: number };
+type BenchmarkSweepPoint = { connections: number; mbPerSec: number; cv?: number };
 type BenchmarkPipeliningPoint = { depth: number; mbPerSec: number };
 type BenchmarkPipelining = {
     testedAtConnections: number;
@@ -45,6 +45,12 @@ type BenchmarkResult = {
     providerConnectionCap?: number | null;
     pipelining?: BenchmarkPipelining | null;
     dataUsedBytes: number;
+    dataBudgetBytes?: number;
+    confidence?: "high" | "medium" | "low";
+    contentionWarnings?: string[];
+    verificationRun?: boolean;
+    budgetLimited?: boolean;
+    wrappedPool?: boolean;
     warnings: string[];
 };
 type BenchmarkProgress = {
@@ -53,6 +59,7 @@ type BenchmarkProgress = {
     percent: number;
     currentConnections?: number | null;
     dataUsedBytes: number;
+    dataBudgetBytes?: number;
     sweep: BenchmarkSweepPoint[];
 };
 type BenchmarkIntensity = "quick" | "thorough";
@@ -759,6 +766,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
     const [connectionTested, setConnectionTested] = useState(false);
     const [testError, setTestError] = useState<string | null>(null);
     const [intensity, setIntensity] = useState<BenchmarkIntensity>("quick");
+    const [dataBudget, setDataBudget] = useState<string>("");
     const [isBenchmarking, setIsBenchmarking] = useState(false);
     const [benchmarkProgress, setBenchmarkProgress] = useState<BenchmarkProgress | null>(null);
     const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResult | null>(null);
@@ -789,6 +797,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
             setConnectionTested(false);
             setTestError(null);
             setIntensity("quick");
+            setDataBudget("");
             setIsBenchmarking(false);
             setBenchmarkProgress(null);
             setBenchmarkResult(null);
@@ -840,7 +849,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
         }
     }, [host, port, useSsl, user, pass]);
 
-    const handleAutoTune = useCallback(async () => {
+    const handleAutoTune = useCallback(async (verifyConnections?: number) => {
         // Abort any previous run still in flight before starting a new one.
         benchmarkAbortRef.current?.abort();
         const controller = new AbortController();
@@ -876,6 +885,8 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
             formData.append('max-connections', maxConnections || "10");
             formData.append('intensity', intensity);
             formData.append('pipelining-only', pipeliningOnly ? 'true' : 'false');
+            if (dataBudget) formData.append('data-budget-mb', dataBudget);
+            if (verifyConnections) formData.append('verify-connections', String(verifyConnections));
 
             const response = await fetch('/api/benchmark-usenet-connection', {
                 method: 'POST', body: formData, signal: controller.signal,
@@ -903,7 +914,7 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
             if (benchmarkAbortRef.current === controller) benchmarkAbortRef.current = null;
             unsubscribeProgress();
         }
-    }, [host, port, useSsl, user, pass, maxConnections, intensity, pipeliningOnly]);
+    }, [host, port, useSsl, user, pass, maxConnections, intensity, pipeliningOnly, dataBudget]);
 
     const handleApplyRecommendation = useCallback(() => {
         if (!benchmarkResult) return;
@@ -1229,12 +1240,15 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
                 isBenchmarking={isBenchmarking}
                 intensity={intensity}
                 setIntensity={setIntensity}
+                dataBudget={dataBudget}
+                setDataBudget={setDataBudget}
                 pipeliningOnly={pipeliningOnly}
                 setPipeliningOnly={setPipeliningOnly}
                 progress={benchmarkProgress}
                 result={benchmarkResult}
                 error={benchmarkError}
-                onRun={handleAutoTune}
+                onRun={() => handleAutoTune()}
+                onVerify={(connections) => handleAutoTune(connections)}
                 onCancel={handleCancelBenchmark}
                 onApply={handleApplyRecommendation}
             />
@@ -1247,12 +1261,15 @@ type BenchmarkPanelProps = {
     isBenchmarking: boolean;
     intensity: BenchmarkIntensity;
     setIntensity: (value: BenchmarkIntensity) => void;
+    dataBudget: string;
+    setDataBudget: (value: string) => void;
     pipeliningOnly: boolean;
     setPipeliningOnly: (value: boolean) => void;
     progress: BenchmarkProgress | null;
     result: BenchmarkResult | null;
     error: string | null;
     onRun: () => void;
+    onVerify: (connections: number) => void;
     onCancel: () => void;
     onApply: () => void;
 };
@@ -1260,7 +1277,8 @@ type BenchmarkPanelProps = {
 function BenchmarkPanel(props: BenchmarkPanelProps) {
     const {
         canBenchmark, isBenchmarking, intensity, setIntensity,
-        pipeliningOnly, setPipeliningOnly, progress, result, error, onRun, onCancel, onApply,
+        dataBudget, setDataBudget, pipeliningOnly, setPipeliningOnly,
+        progress, result, error, onRun, onVerify, onCancel, onApply,
     } = props;
     const [applied, setApplied] = useState(false);
     // A fresh result means the previous "Applied" state no longer holds.
@@ -1306,6 +1324,20 @@ function BenchmarkPanel(props: BenchmarkPanelProps) {
                             Thorough
                         </Button>
                     </div>
+                    <Select
+                        value={dataBudget}
+                        onChange={(e) => setDataBudget(e.target.value)}
+                        disabled={isBenchmarking}
+                        aria-label="Data budget"
+                    >
+                        <option value="">Auto ({intensity === "quick" ? "up to 500 MB" : "up to 2 GB"})</option>
+                        <option value="100">100 MB</option>
+                        <option value="250">250 MB</option>
+                        <option value="500">500 MB</option>
+                        <option value="1000">1 GB</option>
+                        <option value="2000">2 GB</option>
+                        <option value="5000">5 GB</option>
+                    </Select>
                     <Button variant="primary" onClick={onRun} disabled={!canBenchmark || isBenchmarking}>
                         {isBenchmarking ? "Testing…" : (pipeliningOnly ? "Test pipelining" : "Run speed test")}
                     </Button>
@@ -1329,8 +1361,8 @@ function BenchmarkPanel(props: BenchmarkPanelProps) {
                 {pipeliningOnly
                     ? "Won't change your connection count — it tests pipelining depth at the Max Connections you've set. Run it idle for the cleanest read."
                     : (intensity === "quick"
-                        ? "Quick downloads roughly 100 MB of real data — light on metered / block accounts."
-                        : "Thorough downloads roughly 400 MB for steadier numbers on fast connections.")}
+                        ? "Quick sizes each step to your line speed, up to the data budget (default 500 MB) — light on metered / block accounts."
+                        : "Thorough runs longer measurement windows for steadier numbers, up to the data budget (default 2 GB).")}
             </HelpText>
 
             {error && (
@@ -1341,7 +1373,10 @@ function BenchmarkPanel(props: BenchmarkPanelProps) {
                 <div className="mt-3.5">
                     <div className="mb-1.5 flex justify-between gap-2.5 text-xs text-base-content/80">
                         <span>{progress.status}</span>
-                        <span>{formatBytes(progress.dataUsedBytes)} used</span>
+                        <span>
+                            {formatBytes(progress.dataUsedBytes)}
+                            {progress.dataBudgetBytes ? ` / ${formatBytes(progress.dataBudgetBytes)}` : ""} used
+                        </span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-base-300">
                         <div
@@ -1358,6 +1393,33 @@ function BenchmarkPanel(props: BenchmarkPanelProps) {
 
             {result && !isBenchmarking && (
                 <>
+                    {result.contentionWarnings?.map((warning) => (
+                        <Alert key={warning} variant="warning" className="mt-3 text-xs">
+                            {warning}
+                        </Alert>
+                    ))}
+
+                    {result.confidence && (
+                        <div className="mt-3">
+                            <span
+                                className={`badge badge-sm badge-outline font-medium ${
+                                    result.confidence === "high"
+                                        ? "border-success/30 text-success"
+                                        : result.confidence === "medium"
+                                            ? "border-warning/30 text-warning"
+                                            : "border-error/30 text-error"
+                                }`}
+                                title="How steady the measurements were (bucket-to-bucket throughput variation, article-pool reuse, and concurrent activity)."
+                            >
+                                {result.confidence === "high"
+                                    ? "High confidence"
+                                    : result.confidence === "medium"
+                                        ? "Medium confidence"
+                                        : "Low confidence"}
+                            </span>
+                        </div>
+                    )}
+
                     {result.pipeliningOnly ? (
                         pipe ? (
                             <>
@@ -1400,6 +1462,15 @@ function BenchmarkPanel(props: BenchmarkPanelProps) {
                                 Couldn’t measure pipelining{result.latency ? ` (latency ${result.latency.avgMs} ms)` : ""}. Try again when idle.
                             </div>
                         )
+                    ) : result.verificationRun && result.sweep[0] ? (
+                        <div className="mt-4 text-sm leading-relaxed text-base-content/80">
+                            Verified: <strong className="font-semibold text-base-content">
+                                {result.sweep[0].mbPerSec} MB/s
+                            </strong>{" "}
+                            at <strong className="font-semibold text-base-content">
+                                {result.sweep[0].connections} connection{result.sweep[0].connections === 1 ? "" : "s"}
+                            </strong>.
+                        </div>
                     ) : result.throughputTested && recommended ? (
                         <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(116px,1fr))] gap-2">
                             <div className="flex flex-col gap-0.5 rounded-md border border-base-content/10 bg-base-300 px-2.5 py-2">
@@ -1448,11 +1519,20 @@ function BenchmarkPanel(props: BenchmarkPanelProps) {
                         </ul>
                     )}
 
-                    {canApply && (
-                        <div className="mt-3.5">
+                    {(canApply || (recommended != null && !result.verificationRun)) && (
+                        <div className="mt-3.5 flex flex-wrap gap-2">
                             <Button variant={applied ? "secondary" : "primary"} onClick={() => { onApply(); setApplied(true); }}>
                                 {applied ? "Applied ✓ — review & save" : (result.pipeliningOnly ? "Apply pipelining" : "Apply recommendation")}
                             </Button>
+                            {recommended != null && !result.verificationRun && (
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => onVerify(recommended)}
+                                    disabled={isBenchmarking}
+                                >
+                                    Verify at {recommended} connection{recommended === 1 ? "" : "s"}
+                                </Button>
+                            )}
                         </div>
                     )}
                 </>

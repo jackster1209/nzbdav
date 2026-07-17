@@ -17,8 +17,19 @@ public class BenchmarkUsenetConnectionController(
     ConfigManager configManager
 ) : BaseApiController
 {
+    // One benchmark at a time, process-wide: overlapping tests contend for the same
+    // provider budget and poison each other's numbers.
+    private static readonly SemaphoreSlim SingleFlight = new(1, 1);
+
     private async Task<BenchmarkUsenetConnectionResponse> BenchmarkAsync(BenchmarkUsenetConnectionRequest request)
     {
+        if (!await SingleFlight.WaitAsync(TimeSpan.Zero).ConfigureAwait(false))
+            return new BenchmarkUsenetConnectionResponse
+            {
+                Status = false,
+                Error = "A speed test is already running. Wait for it to finish (or cancel it) and try again."
+            };
+
         try
         {
             // Pause the download queue + background verifiers for the duration so
@@ -28,26 +39,27 @@ public class BenchmarkUsenetConnectionController(
 
             // Activity we can't pause — a download already mid-flight or live
             // streams — still uses connections; capture it so we can flag it.
-            var streamsActive = activeReads.Count;
-            var (inProgressItem, _) = queueManager.GetInProgressQueueItem();
+            var streamsBefore = activeReads.Count;
+            var (inProgressBefore, _) = queueManager.GetInProgressQueueItem();
 
             var result = await benchmarkService.RunAsync(
                 request.ToConnectionDetails(),
                 request.MaxConnections,
                 request.Intensity,
                 request.PipeliningOnly,
+                request.DataBudgetBytes,
+                request.VerifyConnections,
                 HttpContext.RequestAborted
             ).ConfigureAwait(false);
 
-            if (inProgressItem != null || streamsActive > 0)
-            {
-                var bits = new List<string>();
-                if (inProgressItem != null) bits.Add("a download was still finishing");
-                if (streamsActive > 0) bits.Add($"{streamsActive} active stream{(streamsActive == 1 ? "" : "s")}");
-                result.Warnings.Insert(0,
-                    $"Heads up: {string.Join(" and ", bits)} during the test — those connections couldn't be paused, " +
-                    "so the numbers may read a little low. Re-run when fully idle for the cleanest result.");
-            }
+            var streamsAfter = activeReads.Count;
+            var (inProgressAfter, _) = queueManager.GetInProgressQueueItem();
+            AddContentionWarnings(
+                result,
+                streamsBefore,
+                streamsAfter,
+                inProgressBefore != null,
+                inProgressAfter != null);
 
             return new BenchmarkUsenetConnectionResponse { Status = true, Result = result };
         }
@@ -67,6 +79,34 @@ public class BenchmarkUsenetConnectionController(
                 Error = "Couldn't log in to the provider. Check the username and password."
             };
         }
+        finally
+        {
+            SingleFlight.Release();
+        }
+    }
+
+    private static void AddContentionWarnings(
+        BenchmarkResult result,
+        int streamsBefore,
+        int streamsAfter,
+        bool downloadBefore,
+        bool downloadAfter)
+    {
+        var bits = new List<string>();
+        if (downloadBefore) bits.Add("a download was still finishing");
+        else if (downloadAfter) bits.Add("a download started mid-test");
+        var streams = Math.Max(streamsBefore, streamsAfter);
+        if (streams > 0) bits.Add($"{streams} active stream{(streams == 1 ? "" : "s")}");
+        if (bits.Count == 0) return;
+
+        result.ContentionWarnings.Add(
+            $"{string.Join(" and ", bits)} during the test — those connections can't be paused, " +
+            "so speeds may read low. Re-run when fully idle for the cleanest result.");
+
+        // Concurrent traffic caps how much the numbers can be trusted.
+        result.Confidence = downloadBefore || downloadAfter
+            ? "low"
+            : (result.Confidence == "high" ? "medium" : result.Confidence);
     }
 
     protected override async Task<IActionResult> HandleRequest()

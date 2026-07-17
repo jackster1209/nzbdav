@@ -21,22 +21,23 @@ public sealed class BenchmarkProfile
     public required int LatencySamples { get; init; }
     public required int MaxCorpusSegments { get; init; }
 
-    /// <summary>Target bytes to transfer at each connection level before moving on.</summary>
+    /// <summary>Floor for the adaptive per-level byte target (bootstrap before we have a speed estimate).</summary>
     public required long PerLevelBytes { get; init; }
 
     /// <summary>Hard wall-clock cap per level so a slow/stalled line can't hang the run.</summary>
     public required TimeSpan PerLevelMaxDuration { get; init; }
 
-    /// <summary>Absolute backstop on total data moved across the whole run.</summary>
+    /// <summary>Ramp time excluded from measurement (TCP slow-start, first-command RTT).</summary>
+    public required TimeSpan WarmupDuration { get; init; }
+
+    /// <summary>Steady-state window we aim to measure after warm-up.</summary>
+    public required TimeSpan MeasureWindow { get; init; }
+
+    /// <summary>Default backstop on total data moved; the request can override it.</summary>
     public required long HardTotalBytes { get; init; }
 
-    /// <summary>Connection counts to sweep (ascending), before clamping to the ceiling/cap.</summary>
     public required int[] SweepLevels { get; init; }
-
-    /// <summary>Connection count used while comparing pipelining on vs. off.</summary>
     public required int PipelineTestConnections { get; init; }
-
-    /// <summary>Pipeline depths to compare against the non-pipelined baseline.</summary>
     public required int[] PipelineDepths { get; init; }
 
     public static BenchmarkProfile For(BenchmarkIntensity intensity) => intensity switch
@@ -46,8 +47,10 @@ public sealed class BenchmarkProfile
             LatencySamples = 8,
             MaxCorpusSegments = 8000,
             PerLevelBytes = 20_000_000,
-            PerLevelMaxDuration = TimeSpan.FromSeconds(10),
-            HardTotalBytes = 650_000_000,
+            PerLevelMaxDuration = TimeSpan.FromSeconds(15),
+            WarmupDuration = TimeSpan.FromSeconds(1.5),
+            MeasureWindow = TimeSpan.FromSeconds(6),
+            HardTotalBytes = 2_000_000_000,
             SweepLevels = [1, 2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 50],
             PipelineTestConnections = 6,
             PipelineDepths = [4, 8, 16],
@@ -57,8 +60,10 @@ public sealed class BenchmarkProfile
             LatencySamples = 5,
             MaxCorpusSegments = 2500,
             PerLevelBytes = 8_000_000,
-            PerLevelMaxDuration = TimeSpan.FromSeconds(8),
-            HardTotalBytes = 160_000_000,
+            PerLevelMaxDuration = TimeSpan.FromSeconds(10),
+            WarmupDuration = TimeSpan.FromSeconds(1),
+            MeasureWindow = TimeSpan.FromSeconds(3),
+            HardTotalBytes = 500_000_000,
             SweepLevels = [1, 2, 4, 8, 16, 24],
             PipelineTestConnections = 4,
             PipelineDepths = [8, 16],
@@ -77,6 +82,9 @@ public sealed class BenchmarkSweepPoint
 {
     public int Connections { get; set; }
     public double MbPerSec { get; set; }
+
+    /// <summary>Coefficient of variation of throughput across sampling buckets (0 = perfectly steady).</summary>
+    public double Cv { get; set; }
 }
 
 public sealed class BenchmarkPipeliningPoint
@@ -113,6 +121,25 @@ public sealed class BenchmarkResult
 
     public BenchmarkPipelining? Pipelining { get; set; }
     public long DataUsedBytes { get; set; }
+
+    /// <summary>Effective data budget for this run (profile default or user override).</summary>
+    public long DataBudgetBytes { get; set; }
+
+    /// <summary>True when the budget stopped the run before all planned levels.</summary>
+    public bool BudgetLimited { get; set; }
+
+    /// <summary>True when the run cycled through the article pool more than once (provider caching may inflate speeds).</summary>
+    public bool WrappedPool { get; set; }
+
+    /// <summary>True when this run only verified a single connection count.</summary>
+    public bool VerificationRun { get; set; }
+
+    /// <summary>"high" | "medium" | "low" — measurement quality signal for the UI.</summary>
+    public string Confidence { get; set; } = "low";
+
+    /// <summary>Warnings about concurrent activity (downloads/streams) that may depress the numbers. Rendered prominently.</summary>
+    public List<string> ContentionWarnings { get; set; } = [];
+
     public List<string> Warnings { get; set; } = [];
 }
 
@@ -124,5 +151,6 @@ public sealed class BenchmarkProgressUpdate
     public int Percent { get; init; }
     public int? CurrentConnections { get; init; }
     public long DataUsedBytes { get; init; }
+    public long DataBudgetBytes { get; init; }
     public List<BenchmarkSweepPoint> Sweep { get; init; } = [];
 }

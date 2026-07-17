@@ -21,6 +21,12 @@ public class BenchmarkUsenetConnectionRequest
     /// <summary>When true, skip the connection sweep and only tune pipelining depth.</summary>
     public bool PipeliningOnly { get; init; }
 
+    /// <summary>Optional user override for the run's total data budget.</summary>
+    public long? DataBudgetBytes { get; init; }
+
+    /// <summary>When set, skip the sweep and just measure this single connection count.</summary>
+    public int? VerifyConnections { get; init; }
+
     public BenchmarkUsenetConnectionRequest(HttpContext context, ConfigManager configManager)
     {
         Host = context.Request.Form["host"].FirstOrDefault()
@@ -58,6 +64,14 @@ public class BenchmarkUsenetConnectionRequest
 
         var pipeliningOnly = context.Request.Form["pipelining-only"].FirstOrDefault();
         PipeliningOnly = bool.TryParse(pipeliningOnly, out var po) && po;
+
+        var budgetMb = context.Request.Form["data-budget-mb"].FirstOrDefault();
+        DataBudgetBytes = long.TryParse(budgetMb, out var mb) && mb is >= 50 and <= 100_000
+            ? mb * 1_000_000L
+            : null;
+
+        var verify = context.Request.Form["verify-connections"].FirstOrDefault();
+        VerifyConnections = int.TryParse(verify, out var vc) && vc > 0 ? vc : null;
     }
 
     public UsenetProviderConfig.ConnectionDetails ToConnectionDetails()
