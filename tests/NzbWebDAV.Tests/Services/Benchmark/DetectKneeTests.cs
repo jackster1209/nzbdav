@@ -41,13 +41,39 @@ public class DetectKneeTests
     }
 
     [Fact]
-    public void DetectKnee_AllZeroSpeedsReturnsFirstConnectionCount()
+    public void DetectKnee_AllZeroSpeedsReturnsNull()
     {
         var sweep = Sweep((2, 0), (4, 0), (8, 0));
+        var warnings = new List<string>();
 
-        var knee = UsenetBenchmarkService.DetectKnee(sweep, null, []);
+        var knee = UsenetBenchmarkService.DetectKnee(sweep, null, warnings);
 
-        Assert.Equal(2, knee);
+        Assert.Null(knee);
+        Assert.Contains(warnings, warning => warning.Contains("couldn't get steady throughput", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void DetectKnee_MostlyZeroSweepWithCeilingSpikeReturnsNull()
+    {
+        var sweep = Sweep(
+            (1, 0), (2, 0), (4, 0), (8, 0), (16, 0), (32, 0), (50, 88));
+        var warnings = new List<string>();
+
+        var knee = UsenetBenchmarkService.DetectKnee(sweep, null, warnings);
+
+        Assert.Null(knee);
+        Assert.Contains(warnings, warning => warning.Contains("couldn't get steady throughput", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void DetectKnee_LoneSpikeAboveTinySecondBestReturnsNull()
+    {
+        // Matches the laptop failure mode: zeros, a blip at 40, then a ceiling spike.
+        var sweep = Sweep(
+            (1, 0), (8, 0), (16, 0), (32, 0), (40, 3.5), (50, 105));
+        var warnings = new List<string>();
+
+        Assert.Null(UsenetBenchmarkService.DetectKnee(sweep, null, warnings));
     }
 
     [Fact]
@@ -60,6 +86,29 @@ public class DetectKneeTests
         UsenetBenchmarkService.DetectKnee(sweep, null, warnings);
 
         Assert.Contains(warnings, warning => warning.Contains("noisy", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void DetectKnee_SetsStillClimbingWhenPeakKeepsRising()
+    {
+        var sweep = Sweep((1, 10), (2, 20), (4, 40), (8, 80), (16, 120));
+        var warnings = new List<string>();
+
+        var knee = UsenetBenchmarkService.DetectKnee(sweep, null, warnings, out var stillClimbing);
+
+        Assert.Equal(16, knee);
+        Assert.True(stillClimbing);
+        Assert.Contains(warnings, warning => warning.Contains("still climbing", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void DetectKnee_StillClimbingFalseOnPlateau()
+    {
+        var sweep = Sweep((1, 10), (2, 20), (4, 35), (8, 40), (16, 41));
+
+        UsenetBenchmarkService.DetectKnee(sweep, null, [], out var stillClimbing);
+
+        Assert.False(stillClimbing);
     }
 
     private static List<BenchmarkSweepPoint> Sweep(params (int Connections, double MbPerSec)[] points) =>

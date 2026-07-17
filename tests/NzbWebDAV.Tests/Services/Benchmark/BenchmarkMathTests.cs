@@ -47,6 +47,46 @@ public class BenchmarkMathTests
     }
 
     [Fact]
+    public void ComputeSteadyRate_IgnoresEmptyBucketsWhenComputingMedian()
+    {
+        var buckets = new List<(long Bytes, double Seconds)>
+        {
+            (10_000_000, 0.5),
+            (0, 0.5),
+            (0, 0.5),
+            (0, 0.5),
+            (12_000_000, 0.5),
+            (11_000_000, 0.5),
+        };
+
+        var (mbPerSec, cv) = UsenetBenchmarkService.ComputeSteadyRate(
+            buckets, fallbackBytes: 33_000_000, fallbackSeconds: 3.0);
+
+        Assert.Equal(22, mbPerSec, 6);
+        Assert.InRange(cv, 0.07, 0.08);
+    }
+
+    [Fact]
+    public void ComputeSteadyRate_UsesWindowMeanWhenMedianIsZeroButBytesMoved()
+    {
+        // Three tiny positive rates would be needed for median path; with only
+        // empty+one positive bucket we fall back. Force the median≈0 + bytes path
+        // with three near-zero positive buckets and a large window mean.
+        var buckets = new List<(long Bytes, double Seconds)>
+        {
+            (1_000, 0.5),
+            (1_000, 0.5),
+            (1_000, 0.5),
+        };
+
+        var (mbPerSec, cv) = UsenetBenchmarkService.ComputeSteadyRate(
+            buckets, fallbackBytes: 30_000_000, fallbackSeconds: 1.5);
+
+        Assert.Equal(20, mbPerSec, 6);
+        Assert.Equal(0.5, cv);
+    }
+
+    [Fact]
     public void ComputeSteadyRate_ZeroDurationFallbackReturnsZero()
     {
         var (mbPerSec, cv) = UsenetBenchmarkService.ComputeSteadyRate(
@@ -57,13 +97,16 @@ public class BenchmarkMathTests
     }
 
     [Fact]
-    public void AdaptiveTargetBytes_UsesProfileFloorWithoutEstimate()
+    public void AdaptiveTargetBytes_UsesConnectionScaledBootstrapWithoutEstimate()
     {
         var profile = BenchmarkProfile.For(BenchmarkIntensity.Quick);
 
-        var bytes = UsenetBenchmarkService.AdaptiveTargetBytes(0, profile, 500_000_000);
+        var one = UsenetBenchmarkService.AdaptiveTargetBytes(0, profile, 500_000_000, connections: 1);
+        var eight = UsenetBenchmarkService.AdaptiveTargetBytes(0, profile, 500_000_000, connections: 8);
 
-        Assert.Equal(profile.PerLevelBytes, bytes);
+        Assert.True(one >= profile.PerLevelBytes);
+        Assert.True(eight > one);
+        Assert.Equal(128_000_000, eight); // 8 conn × 2 MB/s × 2 × 4s
     }
 
     [Fact]
@@ -109,16 +152,18 @@ public class BenchmarkMathTests
     }
 
     [Theory]
-    [InlineData(0.1, false, false, true, "high")]
-    [InlineData(0.2, false, false, true, "medium")]
-    [InlineData(0.1, true, false, true, "medium")]
-    [InlineData(0.35, false, false, true, "low")]
-    [InlineData(0.1, false, true, true, "low")]
-    [InlineData(0.1, false, false, false, "low")]
+    [InlineData(0.1, false, false, false, true, "high")]
+    [InlineData(0.2, false, false, false, true, "medium")]
+    [InlineData(0.1, true, false, false, true, "medium")]
+    [InlineData(0.35, false, false, false, true, "low")]
+    [InlineData(0.1, false, true, true, true, "low")]
+    [InlineData(0.1, false, true, false, true, "medium")]
+    [InlineData(0.1, false, false, false, false, "low")]
     public void ComputeConfidence_ReflectsMeasurementQuality(
         double cv,
         bool wrappedPool,
         bool budgetLimited,
+        bool stillClimbing,
         bool throughputTested,
         string expected)
     {
@@ -127,9 +172,77 @@ public class BenchmarkMathTests
             ThroughputTested = throughputTested,
             WrappedPool = wrappedPool,
             BudgetLimited = budgetLimited,
+            StillClimbing = stillClimbing,
+            RecommendedConnections = 1,
             Sweep = [new BenchmarkSweepPoint { Connections = 1, MbPerSec = 10, Cv = cv }],
         };
 
         Assert.Equal(expected, UsenetBenchmarkService.ComputeConfidence(result));
+    }
+
+    [Fact]
+    public void ComputeConfidence_IgnoresNoisyLowConnectionPointNearKnee()
+    {
+        var result = new BenchmarkResult
+        {
+            ThroughputTested = true,
+            RecommendedConnections = 16,
+            Sweep =
+            [
+                new BenchmarkSweepPoint { Connections = 1, MbPerSec = 10, Cv = 0.8 },
+                new BenchmarkSweepPoint { Connections = 8, MbPerSec = 80, Cv = 0.05 },
+                new BenchmarkSweepPoint { Connections = 16, MbPerSec = 100, Cv = 0.08 },
+            ],
+        };
+
+        Assert.Equal("high", UsenetBenchmarkService.ComputeConfidence(result));
+    }
+
+    [Fact]
+    public void ComputeConfidence_TightConfirmOverridesWrappedPoolCap()
+    {
+        var result = new BenchmarkResult
+        {
+            ThroughputTested = true,
+            WrappedPool = true,
+            ConfirmDeltaPct = 3,
+            RecommendedConnections = 8,
+            Sweep = [new BenchmarkSweepPoint { Connections = 8, MbPerSec = 40, Cv = 0.05 }],
+        };
+
+        Assert.Equal("high", UsenetBenchmarkService.ComputeConfidence(result));
+    }
+
+    [Fact]
+    public void ComputeConfidence_LooseConfirmDowngradesOneLevel()
+    {
+        var result = new BenchmarkResult
+        {
+            ThroughputTested = true,
+            ConfirmDeltaPct = 25,
+            RecommendedConnections = 8,
+            Sweep = [new BenchmarkSweepPoint { Connections = 8, MbPerSec = 40, Cv = 0.05 }],
+        };
+
+        Assert.Equal("medium", UsenetBenchmarkService.ComputeConfidence(result));
+    }
+
+    [Fact]
+    public void ComputeConfidence_BudgetLimitedWithoutClimbingCapsAtMedium()
+    {
+        var result = new BenchmarkResult
+        {
+            ThroughputTested = true,
+            BudgetLimited = true,
+            StillClimbing = false,
+            RecommendedConnections = 8,
+            Sweep =
+            [
+                new BenchmarkSweepPoint { Connections = 4, MbPerSec = 38, Cv = 0.05 },
+                new BenchmarkSweepPoint { Connections = 8, MbPerSec = 40, Cv = 0.05 },
+            ],
+        };
+
+        Assert.Equal("medium", UsenetBenchmarkService.ComputeConfidence(result));
     }
 }

@@ -15,10 +15,13 @@ namespace NzbWebDAV.Services.Benchmark;
 /// </summary>
 public sealed class BenchmarkCorpusProvider(DavDatabaseClient db)
 {
-    // Cap how many nzb files / queue entries we crack open. A handful of recent
-    // releases already yields thousands of segments — far more than any run needs.
+    // Consider a wider recent window, then rank and crack open only the best ones.
+    private const int MaxNzbFilesToConsider = 200;
+    // Cap how many nzb files / queue entries we crack open. A handful of large
+    // healthy releases already yields thousands of segments.
     private const int MaxNzbFilesToScan = 60;
     private const int MaxQueueNzbsToScan = 10;
+    private static readonly TimeSpan RecentHealthWindow = TimeSpan.FromDays(30);
 
     public async Task<List<string>> GetSegmentPoolAsync(int maxSegments, CancellationToken ct)
     {
@@ -51,16 +54,32 @@ public sealed class BenchmarkCorpusProvider(DavDatabaseClient db)
         var recentNzbItems = await db.Ctx.Items
             .Where(x => x.Type == DavItem.ItemType.UsenetFile && x.SubType == DavItem.ItemSubType.NzbFile)
             .OrderByDescending(x => x.CreatedAt)
-            .Take(MaxNzbFilesToScan)
+            .Take(MaxNzbFilesToConsider)
             .ToListAsync(ct).ConfigureAwait(false);
 
-        foreach (var item in recentNzbItems)
+        foreach (var item in RankCompletedCandidates(recentNzbItems, DateTimeOffset.UtcNow))
         {
             if (pool.Count >= maxSegments) return;
             var nzbFile = await db.GetDavNzbFileAsync(item, ct).ConfigureAwait(false);
             if (nzbFile?.SegmentIds is { Length: > 0 } ids)
                 AddIds(pool, seen, ids, maxSegments);
         }
+    }
+
+    /// <summary>
+    /// Prefer recently health-checked files, then larger files (more unique segments),
+    /// then fresher CreatedAt. Caps the crack-open list at <see cref="MaxNzbFilesToScan"/>.
+    /// </summary>
+    internal static List<DavItem> RankCompletedCandidates(
+        IEnumerable<DavItem> candidates, DateTimeOffset now)
+    {
+        var healthCutoff = now - RecentHealthWindow;
+        return candidates
+            .OrderByDescending(x => x.LastHealthCheck >= healthCutoff)
+            .ThenByDescending(x => x.FileSize ?? 0)
+            .ThenByDescending(x => x.CreatedAt)
+            .Take(MaxNzbFilesToScan)
+            .ToList();
     }
 
     // Fallback source: parse the raw nzb xml of items still sitting in the queue.
