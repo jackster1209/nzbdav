@@ -121,18 +121,28 @@ public sealed class UsenetBenchmarkService(WebsocketManager websocketManager, Be
             Report("sweep", $"Verifying {vc} connection{(vc == 1 ? "" : "s")}…", 40, result, vc);
             var have = await ladder.EnsureAsync(vc, ct).ConfigureAwait(false);
 
-            var bootstrap = await MeasureThroughputAsync(
-                ladder, pool, Math.Min(profile.PerLevelBytes, Remaining()),
-                profile.WarmupDuration, TimeSpan.FromSeconds(1.5), profile.PerLevelMaxDuration,
-                pipeliningDepth: 0, ct).ConfigureAwait(false);
-            result.DataUsedBytes += bootstrap.Bytes;
-
-            Report("sweep", $"Measuring {have} connection{(have == 1 ? "" : "s")}…", 65, result, have);
+            // Size the target for this concurrency from the start. A fixed PerLevelBytes
+            // bootstrap (e.g. 20 MB) finishes during warmup on fast lines at high
+            // connection counts, leaving a 0 MB/s measure window.
             var sample = await MeasureThroughputAsync(
-                ladder, pool, AdaptiveTargetBytes(bootstrap.MegaBytesPerSec, profile, Remaining(), have),
+                ladder, pool, AdaptiveTargetBytes(0, profile, Remaining(), have),
                 profile.WarmupDuration, profile.MeasureWindow, profile.PerLevelMaxDuration,
                 pipeliningDepth: 0, ct).ConfigureAwait(false);
             result.DataUsedBytes += sample.Bytes;
+
+            if (sample.ExhaustedDuringWarmup
+                && sample.MegaBytesPerSec > 0
+                && Remaining() > MinUsefulBytes(sample.MegaBytesPerSec, profile))
+            {
+                Report("sweep", $"Re-measuring {have} connection{(have == 1 ? "" : "s")}…", 65, result, have);
+                var retry = await MeasureThroughputAsync(
+                    ladder, pool, AdaptiveTargetBytes(sample.MegaBytesPerSec, profile, Remaining(), have),
+                    profile.WarmupDuration, profile.MeasureWindow, profile.PerLevelMaxDuration,
+                    pipeliningDepth: 0, ct).ConfigureAwait(false);
+                result.DataUsedBytes += retry.Bytes;
+                if (retry.MegaBytesPerSec > 0)
+                    sample = retry;
+            }
 
             result.Sweep.Add(new BenchmarkSweepPoint
             {
@@ -140,10 +150,16 @@ public sealed class UsenetBenchmarkService(WebsocketManager websocketManager, Be
                 MegaBytesPerSec = Math.Round(sample.MegaBytesPerSec, 2),
                 Cv = Math.Round(sample.Cv, 3),
             });
-            result.RecommendedConnections = have;
+            result.RecommendedConnections = have > 0 ? have : vc;
             result.VerificationRun = true;
-            if (have < vc)
+            if (have == 0)
+                result.Warnings.Add("Could not open any connections for the verification run.");
+            else if (have < vc)
                 result.Warnings.Add($"Only {have} of {vc} connections could be opened for the verification run.");
+            if (sample.MegaBytesPerSec < 0.5)
+                result.Warnings.Add(
+                    "Verification measured almost no throughput. The line may have been busy, or the test " +
+                    "article pool was exhausted — try again when idle, or re-run a full speed test.");
         }
         else
         {

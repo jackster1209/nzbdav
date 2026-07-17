@@ -938,6 +938,9 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
 
         // Progress + terminal result over the websocket. The POST may be dropped by
         // an intermediary timeout on large budgets; the done frame still finishes the UI.
+        // Ignore a replayed previous "done" (state topics resend lastMessage on subscribe)
+        // until we've seen live progress from this run.
+        let sawLiveProgress = false;
         unsubscribeProgress = subscribeWebsocketTopics(
             { bench: "state" },
             (topic, message) => {
@@ -945,9 +948,11 @@ function ProviderModal({ show, provider, onClose, onSave, onApplyPipelining, def
                 try {
                     const update = JSON.parse(message) as BenchmarkProgress;
                     if (update.phase === "done") {
+                        if (!sawLiveProgress) return;
                         finish(update.result ?? null, update.error ?? null);
                         return;
                     }
+                    sawLiveProgress = true;
                     setBenchmarkProgress(update);
                 } catch { /* ignore malformed progress */ }
             },
@@ -1585,12 +1590,27 @@ function BenchmarkPanel(props: BenchmarkPanelProps) {
                         )
                     ) : result.verificationRun && result.sweep[0] ? (
                         <div className="mt-4 text-sm leading-relaxed text-base-content/80">
-                            Verified: <strong className="font-semibold text-base-content">
-                                {result.sweep[0].megaBytesPerSec} MB/s
-                            </strong>{" "}
-                            at <strong className="font-semibold text-base-content">
-                                {result.sweep[0].connections} connection{result.sweep[0].connections === 1 ? "" : "s"}
-                            </strong>.
+                            {result.sweep[0].megaBytesPerSec < 0.5 ? (
+                                <>
+                                    Verification at <strong className="font-semibold text-base-content">
+                                        {result.sweep[0].connections} connection{result.sweep[0].connections === 1 ? "" : "s"}
+                                    </strong>{" "}
+                                    didn’t measure usable throughput
+                                    {result.sweep[0].megaBytesPerSec > 0
+                                        ? <> (<strong className="font-semibold text-base-content">{result.sweep[0].megaBytesPerSec} MB/s</strong>)</>
+                                        : null}
+                                    . Re-run when idle, or run a full speed test again.
+                                </>
+                            ) : (
+                                <>
+                                    Verified: <strong className="font-semibold text-base-content">
+                                        {result.sweep[0].megaBytesPerSec} MB/s
+                                    </strong>{" "}
+                                    at <strong className="font-semibold text-base-content">
+                                        {result.sweep[0].connections} connection{result.sweep[0].connections === 1 ? "" : "s"}
+                                    </strong>.
+                                </>
+                            )}
                         </div>
                     ) : result.throughputTested && recommended ? (
                         <div className="stats stats-vertical mt-4 w-full max-w-full border border-base-content/10 bg-base-300 sm:stats-horizontal">
