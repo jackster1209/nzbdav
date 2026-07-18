@@ -1,5 +1,5 @@
 import { SettingsPage } from "~/components/ui";
-import { Checkbox, Input } from "~/components/ui/form";
+import { Checkbox, Input, Select } from "~/components/ui/form";
 import { type Dispatch, type SetStateAction } from "react";
 import { isPositiveInteger } from "../usenet/usenet";
 
@@ -61,6 +61,29 @@ export function RepairsSettings({ config, setNewConfig }: RepairsSettingsProps) 
             </div>
             <hr />
             <div className="space-y-2">
+                <label className="block text-sm font-medium text-base-content" htmlFor="healthcheck-depth-input">Health Check Depth</label>
+                <Select
+                    className="w-full"
+                    id="healthcheck-depth-input"
+                    aria-describedby="healthcheck-depth-help"
+                    value={config["repair.healthcheck-depth"] ?? "standard"}
+                    onChange={e => setNewConfig({ ...config, "repair.healthcheck-depth": e.target.value })}
+                >
+                    <option value="standard">Standard</option>
+                    <option value="enhanced">Enhanced</option>
+                    <option value="deep">Deep</option>
+                    <option value="complete">Complete</option>
+                </Select>
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="healthcheck-depth-help">
+                    How much of each file a health check verifies. Files up to 8000 segments are always
+                    checked in full. Above that, larger files are sampled from the start, end, and evenly
+                    spaced points in between, so a big release costs a bounded number of STAT commands.
+                    Deeper settings verify more of each file and use more usenet traffic. Complete checks
+                    every segment.
+                </p>
+            </div>
+            <hr />
+            <div className="space-y-2">
                 <label className="block text-sm font-medium text-base-content" htmlFor="auto-remove-after-failures-input">Auto-Remove After Streaming Failures</label>
                 <Input
                     className={`w-full ${!isNonNegativeInteger(autoRemoveAfter || "0") ? "input-error" : ""}`}
@@ -114,6 +137,7 @@ export function RepairsSettings({ config, setNewConfig }: RepairsSettingsProps) 
 export function isRepairsSettingsUpdated(config: Record<string, string>, newConfig: Record<string, string>) {
     return config["repair.enable"] !== newConfig["repair.enable"]
         || config["repair.healthcheck-concurrency"] !== newConfig["repair.healthcheck-concurrency"]
+        || config["repair.healthcheck-depth"] !== newConfig["repair.healthcheck-depth"]
         || config["repair.auto-remove-after-failures"] !== newConfig["repair.auto-remove-after-failures"]
         || config["repair.auto-remove-unlinked-only"] !== newConfig["repair.auto-remove-unlinked-only"]
         || config["media.library-dir"] !== newConfig["media.library-dir"];

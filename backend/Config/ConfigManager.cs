@@ -14,6 +14,9 @@ public class ConfigManager
 {
     public static readonly string AppVersion = EnvironmentUtil.GetEnvironmentVariable("NZBDAV_VERSION") ?? "0.0.0";
 
+    // Sampling curve multiplier used by a background health check when none is configured.
+    public const double DefaultHealthCheckDepth = 0.5;
+
     private readonly Dictionary<string, string> _config = new();
     private readonly Dictionary<(string Name, Type Type), object?> _deserializedConfig = new();
     // Compiled exclude patterns are cached and rebuilt only when an exclude-related
@@ -1101,6 +1104,22 @@ public class ConfigManager
             ?? "50"
         );
         return Math.Clamp(configured, 1, Math.Max(1, poolSize));
+    }
+
+    /// <summary>
+    /// How much of each file a health check reads, as a multiplier on the sampling curve.
+    /// Returns 0 for "complete", which turns sampling off so every segment is checked.
+    /// </summary>
+    public double GetHealthCheckDepth()
+    {
+        var configured = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.RepairHealthcheckDepth));
+        return configured switch
+        {
+            "enhanced" => 1.0,
+            "deep" => 2.0,
+            "complete" => 0,
+            _ => DefaultHealthCheckDepth,
+        };
     }
 
     /// <summary>
