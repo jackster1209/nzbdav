@@ -4,10 +4,10 @@
 > Early adopters are reporting **2x network throughput** capability and a **400% reduction in seek time**.
 
 <p align="center">
-  <img width="1101" height="238" alt="NzbDav" src="https://github.com/user-attachments/assets/b14165f4-24ff-4abe-8af6-3ca852e781d4" />
+  <img width="1101" height="238" alt="NzbDAV" src="https://github.com/user-attachments/assets/b14165f4-24ff-4abe-8af6-3ca852e781d4" />
 </p>
 
-<h1 align="center">NzbDav</h1>
+<h1 align="center">NzbDAV</h1>
 
 <p align="center">
   <strong>Mount NZBs as a virtual filesystem and stream directly from Usenet — without downloading full media files first.</strong>
@@ -22,7 +22,7 @@
 
 ---
 
-NzbDav is a **WebDAV server** that mounts NZB documents as a browsable virtual filesystem — without downloading full media files first. Content streams on demand, straight from your Usenet provider.
+NzbDAV is a **WebDAV server** that mounts NZB documents as a browsable virtual filesystem — without downloading full media files first. Content streams on demand, straight from your Usenet provider.
 
 It also exposes a **SABnzbd-compatible API**, so Sonarr, Radarr, and similar tools can use it as a drop-in download client. Combined with Plex, Emby, or Jellyfin, this lets you build an effectively infinite media library without storing the full media library on your server.
 
@@ -109,7 +109,7 @@ Special thanks to the forks and contributors whose ideas we absorbed:
 
 ## Quick start
 
-NzbDav ships as a single Docker image. To try it out:
+NzbDAV ships as a single Docker image. To try it out:
 
 ```bash
 docker run --rm -it -p 3000:3000 ghcr.io/nzbdav/nzbdav:latest
@@ -138,7 +138,7 @@ services:
 Then open `http://localhost:3000`, create your admin account, and head to the **Settings** page to configure your Usenet provider:
 
 > [!IMPORTANT]
-> Port `3000` serves plain HTTP. If NzbDav will be reachable outside your trusted network, put it behind an HTTPS reverse proxy and do not expose the container port directly to the internet. WebDAV uses Basic authentication, so TLS is essential for remote access. When the proxy runs on the Docker host, bind the port to localhost with `127.0.0.1:3000:3000`.
+> Port `3000` serves plain HTTP. If NzbDAV will be reachable outside your trusted network, put it behind an HTTPS reverse proxy and do not expose the container port directly to the internet. WebDAV uses Basic authentication, so TLS is essential for remote access. When the proxy runs on the Docker host, bind the port to localhost with `127.0.0.1:3000:3000`.
 
 You'll also want to set a username and password for the WebDAV server itself.
 
@@ -164,7 +164,7 @@ The project consists of a .NET backend (WebDAV, Usenet streaming, SAB API) and a
 
 ## License
 
-NzbDav is released under the [MIT License](LICENSE).
+NzbDAV is released under the [MIT License](LICENSE).
 
 > [!NOTE]
 > NzbDav is intended for use with legally obtained content only. The project maintainers do not condone piracy and will not provide support for users suspected of engaging in copyright infringement.
