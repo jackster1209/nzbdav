@@ -49,6 +49,26 @@ public class NntpClientCheckAllSegmentsTests
     }
 
     [Fact]
+    public async Task ArticleExistenceChecker_UsesConcurrentPoolPath()
+    {
+        var client = new TrackingPipelinedStatClient(
+            pipelinedExists: [true, true],
+            recheckCodes: [223, 223]);
+
+        await ArticleExistenceChecker.CheckAsync(
+            client,
+            ["a@example", "b@example"],
+            concurrency: 7,
+            progress: null,
+            CancellationToken.None);
+
+        Assert.Equal(1, client.CheckAllSegmentsCallCount);
+        Assert.Equal(0, client.PipelinedStatsCallCount);
+        Assert.Equal(7, client.LastConcurrency);
+        Assert.Equal(["a@example", "b@example"], client.RecheckedSegmentIds);
+    }
+
+    [Fact]
     public async Task CheckAllSegmentsPipelinedAsync_WithAllExists_SucceedsWithoutFailoverRecheck()
     {
         var client = new TrackingPipelinedStatClient(
@@ -178,6 +198,8 @@ public class NntpClientCheckAllSegmentsTests
         private int _recheckIndex;
 
         public int CheckAllSegmentsCallCount { get; private set; }
+        public int PipelinedStatsCallCount { get; private set; }
+        public int? LastConcurrency { get; private set; }
         public List<string> RecheckedSegmentIds { get; } = [];
 
         public override async IAsyncEnumerable<PipelinedStatResult> StatsPipelinedAsync(
@@ -186,6 +208,7 @@ public class NntpClientCheckAllSegmentsTests
             [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
         {
             await Task.Yield();
+            PipelinedStatsCallCount++;
             if (sweepException != null && throwAfterYieldCount <= 0)
                 throw sweepException;
 
@@ -209,6 +232,7 @@ public class NntpClientCheckAllSegmentsTests
             CancellationToken cancellationToken)
         {
             CheckAllSegmentsCallCount++;
+            LastConcurrency = concurrency;
             var list = segmentIds.ToList();
             RecheckedSegmentIds.AddRange(list);
 

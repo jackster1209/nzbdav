@@ -190,21 +190,8 @@ public class HealthCheckService : BackgroundService
 
             // perform health check
             var progress = progressHook.ToPercentage(sampled.Count);
-            if (_configManager.IsPipeliningEnabled())
-            {
-                await _usenetClient.CheckAllSegmentsPipelinedAsync(
-                        sampled,
-                        _configManager.GetPipeliningDepth(),
-                        concurrency,
-                        progress,
-                        ct)
-                    .ConfigureAwait(false);
-            }
-            else
-            {
-                await _usenetClient.CheckAllSegmentsAsync(sampled, concurrency, progress, ct)
-                    .ConfigureAwait(false);
-            }
+            await ArticleExistenceChecker.CheckAsync(_usenetClient, sampled, concurrency, progress, ct)
+                .ConfigureAwait(false);
             _ = _websocketManager.SendMessage(WebsocketTopic.HealthItemProgress, $"{davItem.Id}|100");
             _ = _websocketManager.SendMessage(WebsocketTopic.HealthItemProgress, $"{davItem.Id}|done");
 

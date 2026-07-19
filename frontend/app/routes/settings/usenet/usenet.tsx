@@ -418,7 +418,7 @@ export function UsenetSettings({ config, setNewConfig }: UsenetSettingsProps) {
         <SettingsPage>
             <SettingsIntro>
                 Configure NNTP providers, decide whether they share load or cascade in priority order, and tune
-                pipelining for faster queue imports.
+                pipelining for faster queue first-segment fetches.
             </SettingsIntro>
 
             <section className="space-y-3">
@@ -684,9 +684,9 @@ export function UsenetSettings({ config, setNewConfig }: UsenetSettingsProps) {
                             <span>
                                 <span className="block text-sm font-medium text-base-content">Enable NNTP pipelining</span>
                                 <span className="mt-0.5 block text-xs leading-relaxed text-base-content/50">
-                                    Batch BODY requests during queue imports and benchmarks, and pipeline STAT
-                                    existence checks for import health and background repairs. WebDAV streaming has its
-                                    own toggle under WebDAV settings.
+                                    Batch first-segment BODY requests during queue imports and provider benchmarks.
+                                    Health and import existence checks continue using the connection pool. WebDAV
+                                    streaming has its own toggle under WebDAV settings.
                                 </span>
                             </span>
                         </label>
