@@ -76,10 +76,10 @@ export function RepairsSettings({ config, setNewConfig }: RepairsSettingsProps) 
                 </Select>
                 <p className="text-[11px] leading-relaxed text-base-content/45" id="healthcheck-depth-help">
                     How much of each file a health check verifies. Files up to 8000 segments are
-                    checked in full. Above that, larger files are sampled from the start, end, and evenly
-                    spaced points in between, so a big release costs a bounded number of STAT commands.
-                    Deeper settings verify more of each file and use more usenet traffic. Complete checks
-                    every segment.
+                    checked in full, unless the aging option below is turned on. Above that, larger files
+                    are sampled from the start, end, and evenly spaced points in between, so a big release
+                    costs a bounded number of STAT commands. Deeper settings verify more of each file and
+                    use more usenet traffic. Complete checks every segment.
                 </p>
             </div>
             <div className="space-y-2">

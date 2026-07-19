@@ -1125,7 +1125,7 @@ public class ConfigManager
     public double GetHealthCheckDepth()
     {
         var configured = StringUtil.EmptyToNull(GetConfigValue(ConfigKeys.RepairHealthcheckDepth));
-        return configured switch
+        return configured?.ToLowerInvariant() switch
         {
             "enhanced" => 1.0,
             "deep" => 2.0,
