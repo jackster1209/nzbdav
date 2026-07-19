@@ -349,6 +349,35 @@ Docker image builds are shared via the reusable workflow. Branch and dependabot 
 5. **Frontend styling** — follow the [design-language skill](.cursor/skills/design-language/SKILL.md) (colors, surfaces, typography, buttons, theming) for any UI styling or refactoring work.
 6. **Security** — never commit secrets; WebDAV and admin APIs require auth; frontend injects API key only for authenticated sessions.
 7. **Comments** — only for non-obvious logic; prefer clear naming.
+8. **Exception logging** — see [Stack dumps and human-friendly log events](#stack-dumps-and-human-friendly-log-events) below.
+
+## Stack dumps and human-friendly log events
+
+When a user (or issue) includes a **stack dump / exception trace** — even if the underlying event is expected, transient, or “by design” — treat that noise as a product defect unless the failure is already caught and logged as a **human-friendly single-line event**.
+
+**Goal:** operators should see a clear Warning (or similar) with context and `{Reason}`, not an Error + full stack for known failures. Full stacks stay for truly unexpected bugs (and optionally `Log.Debug(e, …)` when a known failure needs a stack for maintainers).
+
+**Remediation plans must always include** catching and handling that exception path with an appropriate log event. Do not stop at “this is expected / config / provider noise” without a logging fix. Closing or deferring the behavioral symptom is fine; leaving an unhandled stack dump is not.
+
+**Backend pattern** (prefer existing helpers in [`backend/Extensions/ExceptionExtensions.cs`](backend/Extensions/ExceptionExtensions.cs)):
+
+- `TryGetKnownErrorMessage` / `LogWarningKnownOrStack` — known transport/download failures → Warning + `{Reason}`, no stack; unexpected → log with exception (stack preserved).
+- Outer `catch` blocks that today do `Log.Error(e, …)` for everything should branch: known → human-friendly Warning (optional Debug stack); else → Error with stack.
+- Example shape (see [`HealthCheckService`](backend/Services/HealthCheckService.cs)):
+
+```csharp
+if (e.TryGetKnownErrorMessage(out var reason))
+{
+    Log.Warning("Background health check deferred. Reason: {Reason}", reason);
+    Log.Debug(e, "Background health check known failure stack");
+}
+else
+{
+    Log.Error(e, "Unexpected error performing background health checks: {Message}", e.Message);
+}
+```
+
+**Frontend / Node:** same principle for warnings and unhandled rejections that dump stacks or Node emitter noise into container logs — capture the path and emit a clear, throttled operator-facing log line (or fix the leak) rather than leaving raw runtime dumps.
 
 ## Common pitfalls
 
@@ -359,6 +388,7 @@ Docker image builds are shared via the reusable workflow. Branch and dependabot 
 - **Breaking upgrades:** irreversible schema changes ship as ordinary EF migrations that auto-apply on startup and surface through the migration-progress splash; there is no `UPGRADE` env-var interlock. Advise a `/config` backup before upgrading across such a migration. Commits that add migrations **must** use a breaking conventional-commit marker (`!` or `BREAKING CHANGE`) so release-please bumps as breaking.
 - **Test fixtures:** prefer deterministic generated data and `FakeNntpClient`; do not require live Usenet providers in the automated suite.
 - **Streaming changes:** run the focused backend tests and retain manual range, rclone scrubbing, and encrypted-archive playback checks for behavior not covered by automation.
+- **Stack dumps for known failures:** do not dismiss an attached exception trace as “expected” without a remediation that catches it and logs a human-friendly event (see [Stack dumps and human-friendly log events](#stack-dumps-and-human-friendly-log-events)).
 
 ## Useful references
 
