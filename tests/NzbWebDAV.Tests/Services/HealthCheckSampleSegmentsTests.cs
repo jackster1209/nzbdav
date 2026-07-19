@@ -24,6 +24,20 @@ public class HealthCheckSampleSegmentsTests
     }
 
     [Fact]
+    public void SampleTarget_FloorAppliesBeforeAgingNotAfter()
+    {
+        const int count = HealthCheckService.SampleFloor;
+
+        var whenNew = HealthCheckService.SampleTarget(count, Standard, TimeSpan.Zero);
+        var whenOld = HealthCheckService.SampleTarget(count, Standard, TimeSpan.FromDays(3650));
+
+        // A new file at the floor is checked in full, but the floor is the curve's
+        // minimum rather than a guarantee that survives aging.
+        Assert.Equal(count, whenNew);
+        Assert.InRange(100.0 * whenOld / count, 31, 33);
+    }
+
+    [Fact]
     public void SampleSegments_ZeroDepthChecksEverySegment()
     {
         var segments = Segments(50_000);
@@ -130,6 +144,19 @@ public class HealthCheckSampleSegmentsTests
         var unknown = HealthCheckService.SampleTarget(20_000, Standard, age: null);
 
         Assert.Equal(known, unknown);
+    }
+
+    [Fact]
+    public void SampleTarget_WithAgingDisabledMatchesANewRelease()
+    {
+        // Disabling the taper means the caller passes no age, so an ancient release is
+        // sampled exactly as deeply as a fresh one of the same size.
+        var aged = HealthCheckService.SampleTarget(20_000, Standard, TimeSpan.FromDays(3650));
+        var ageless = HealthCheckService.SampleTarget(20_000, Standard, age: null);
+        var fresh = HealthCheckService.SampleTarget(20_000, Standard, TimeSpan.Zero);
+
+        Assert.Equal(fresh, ageless);
+        Assert.True(aged < ageless, $"aged {aged} should sample less than ageless {ageless}");
     }
 
     [Theory]

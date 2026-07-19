@@ -75,11 +75,27 @@ export function RepairsSettings({ config, setNewConfig }: RepairsSettingsProps) 
                     <option value="complete">Complete</option>
                 </Select>
                 <p className="text-[11px] leading-relaxed text-base-content/45" id="healthcheck-depth-help">
-                    How much of each file a health check verifies. Files up to 8000 segments are always
+                    How much of each file a health check verifies. Files up to 8000 segments are
                     checked in full. Above that, larger files are sampled from the start, end, and evenly
                     spaced points in between, so a big release costs a bounded number of STAT commands.
                     Deeper settings verify more of each file and use more usenet traffic. Complete checks
                     every segment.
+                </p>
+            </div>
+            <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm text-base-content/80">
+                    <Checkbox
+                    id="healthcheck-aging-checkbox"
+                    aria-describedby="healthcheck-aging-help"
+                    checked={(config["repair.healthcheck-aging"] ?? "false") === "true"}
+                    onChange={e => setNewConfig({ ...config, "repair.healthcheck-aging": "" + e.target.checked })}  />
+                    <span>Check older releases less thoroughly</span>
+                </label>
+                <p className="text-[11px] leading-relaxed text-base-content/45" id="healthcheck-aging-help">
+                    Off by default. When enabled, coverage tapers for releases past their first year, on
+                    the basis that a post which has already survived that long is less likely to break.
+                    The taper stops at ten years. Useful for large libraries where most of the catalogue
+                    is long-since posted and rechecking it in full costs more than it finds.
                 </p>
             </div>
             <hr />
@@ -138,6 +154,7 @@ export function isRepairsSettingsUpdated(config: Record<string, string>, newConf
     return config["repair.enable"] !== newConfig["repair.enable"]
         || config["repair.healthcheck-concurrency"] !== newConfig["repair.healthcheck-concurrency"]
         || config["repair.healthcheck-depth"] !== newConfig["repair.healthcheck-depth"]
+        || config["repair.healthcheck-aging"] !== newConfig["repair.healthcheck-aging"]
         || config["repair.auto-remove-after-failures"] !== newConfig["repair.auto-remove-after-failures"]
         || config["repair.auto-remove-unlinked-only"] !== newConfig["repair.auto-remove-unlinked-only"]
         || config["media.library-dir"] !== newConfig["media.library-dir"];

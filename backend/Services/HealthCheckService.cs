@@ -22,7 +22,7 @@ public class HealthCheckService : BackgroundService
 {
     private const int MaximumMissingSegmentIds = 100_000;
 
-    // Files at or below this many segments are always checked in full.
+    // Files at or below this many segments are checked in full, before any aging taper.
     public const int SampleFloor = 8000;
 
     // A release keeps full depth for its first year, then tapers until it stops aging at ten.
@@ -174,7 +174,9 @@ public class HealthCheckService : BackgroundService
 
             // sample large files to reduce NNTP load while keeping head/tail/stride coverage
             var totalSegments = segments.Count;
-            var age = davItem.ReleaseDate is { } posted ? DateTimeOffset.UtcNow - posted : (TimeSpan?)null;
+            var age = _configManager.IsHealthCheckAgingEnabled() && davItem.ReleaseDate is { } posted
+                ? DateTimeOffset.UtcNow - posted
+                : (TimeSpan?)null;
             var sampled = SampleSegments(segments, _configManager.GetHealthCheckDepth(), age);
 
             // setup progress tracking
@@ -299,9 +301,9 @@ public class HealthCheckService : BackgroundService
     }
 
     /// <summary>
-    /// How many segments to STAT for one file. Small files are checked in full,
-    /// larger ones are sampled based on their size, with an aging function applied on top.
-    /// Depth 0 will bypass this and do a full check.
+    /// How many segments to STAT for one file. Files up to the floor are checked in full,
+    /// larger ones are sampled based on their size, and an optional age scales the result
+    /// down from there. Depth 0 will bypass this and do a full check.
     /// </summary>
     public static int SampleTarget(int segmentCount, double depth, TimeSpan? age = null)
     {
@@ -317,8 +319,8 @@ public class HealthCheckService : BackgroundService
     /// </summary>
     private static double AgeWeight(TimeSpan? age)
     {
-        if (age is not { } posted) return 1.0;
-        return Math.Sqrt(FullDepthDays / Math.Clamp(posted.TotalDays, FullDepthDays, MinDepthDays));
+        if (age is not { } elapsed) return 1.0;
+        return Math.Sqrt(FullDepthDays / Math.Clamp(elapsed.TotalDays, FullDepthDays, MinDepthDays));
     }
 
     /// <summary>
