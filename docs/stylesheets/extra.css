@@ -33,10 +33,11 @@
 }
 
 .md-typeset .nzbdav-hero img {
-  max-width: min(100%, 720px);
+  max-width: min(100%, 880px);
   height: auto;
   margin: 0 auto 1.25rem;
   border-radius: 0.5rem;
+  box-shadow: 0 12px 40px color-mix(in srgb, #000 35%, transparent);
 }
 
 .md-typeset .nzbdav-hero h1 {

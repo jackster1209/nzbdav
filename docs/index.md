@@ -7,7 +7,7 @@ hide:
 
 <div class="nzbdav-hero" markdown>
 
-![NzbDav](https://github.com/user-attachments/assets/b14165f4-24ff-4abe-8af6-3ca852e781d4)
+![NzbDav admin UI](https://github.com/user-attachments/assets/37649514-bca5-471f-9556-0d34de2bd8e5)
 
 # NzbDav
 
