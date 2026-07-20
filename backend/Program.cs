@@ -250,7 +250,6 @@ class Program
             var app = builder.Build();
             // Must run before anything that reads Scheme/Host/RemoteIpAddress.
             app.UseForwardedHeaders();
-            _ = app.Services.GetRequiredService<QueueManager>();
             app.UseMiddleware<ExceptionMiddleware>();
             app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
             app.MapHealthChecks("/health");
@@ -268,6 +267,10 @@ class Program
                 UsenetProviderIdentity.RemapHostKeyedMetricsAsync(
                     configManager.GetUsenetProviderConfig(),
                     SigtermUtil.GetCancellationToken())));
+            // Start the queue only after Kestrel is serving so /health can answer
+            // before the first BODY decode (which can crash on a bad native lib).
+            app.Lifetime.ApplicationStarted.Register(() =>
+                app.Services.GetRequiredService<QueueManager>().StartProcessing());
             await app.RunAsync().ConfigureAwait(false);
         }
         catch (Exception exception)

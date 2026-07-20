@@ -30,6 +30,7 @@ public class QueueManager : IDisposable
 
     private CancellationTokenSource _sleepingQueueToken = new();
     private readonly Lock _sleepingQueueLock = new();
+    private int _loopStarted;
 
     // Overridable in tests so persistent-failure / idle-sleep behaviour can be
     // exercised without a real database.
@@ -50,7 +51,7 @@ public class QueueManager : IDisposable
         BenchmarkGate benchmarkGate
     ) : this(
         usenetClient, configManager, websocketManager, providerUsageTracker,
-        watchdogLog, sourceTracker, benchmarkGate, startLoop: true)
+        watchdogLog, sourceTracker, benchmarkGate, startLoop: false)
     {
     }
 
@@ -75,7 +76,18 @@ public class QueueManager : IDisposable
         _cancellationTokenSource = CancellationTokenSource
             .CreateLinkedTokenSource(SigtermUtil.GetCancellationToken());
         if (startLoop)
-            _ = ProcessQueueAsync(_cancellationTokenSource.Token);
+            StartProcessing();
+    }
+
+    /// <summary>
+    /// Starts the background queue loop. Safe to call more than once; only the
+    /// first call starts processing. DI construction leaves the loop stopped so
+    /// Kestrel can bind before the first BODY decode.
+    /// </summary>
+    public void StartProcessing()
+    {
+        if (Interlocked.Exchange(ref _loopStarted, 1) == 1) return;
+        _ = ProcessQueueAsync(_cancellationTokenSource!.Token);
     }
 
     public (QueueItem? queueItem, int? progress) GetInProgressQueueItem()
