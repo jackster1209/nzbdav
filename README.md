@@ -2,6 +2,8 @@
 > This fork is designed to be a drop in replacement/upgrade from `nzbdav-dev/nzbdav v0.6.4`.
 >
 > Early adopters are reporting **2x network throughput** capability and a **400% reduction in seek time**.
+>
+> `ghcr.io/nzbdav/nzbdav:latest`
 
 <h1 align="center">NzbDAV</h1>
 
