@@ -1,5 +1,98 @@
 # Changelog
 
+## [0.8.0](https://github.com/nzbdav/nzbdav/compare/v0.7.25...v0.8.0) (2026-07-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **db:** adds a database migration; back up /config before upgrading.
+
+### Features
+
+* **db:** search links keep working after restarts and have a configurable lifetime ([#452](https://github.com/nzbdav/nzbdav/issues/452)) ([f186b38](https://github.com/nzbdav/nzbdav/commit/f186b38be4338360771edfe247a2cf7198d6818e))
+* gzip NZB ingest, nested RAR extraction, SAB API conformance, provider outage history, and CRC-verified downloads ([#467](https://github.com/nzbdav/nzbdav/issues/467)) ([095825d](https://github.com/nzbdav/nzbdav/commit/095825d3cc7f0464bd6b1eafa70d02bd92f3ef98))
+* **health:** make the aging taper opt-in and validate the depth setting ([00c97d4](https://github.com/nzbdav/nzbdav/commit/00c97d42dda54609ebf9b0e706ab34d3d3c403ff))
+* **health:** smooth out stat cliff bug, add aging function ([d73a568](https://github.com/nzbdav/nzbdav/commit/d73a568f25c505e9711f373badbc4c4498b0d1b5))
+* **nntp:** allow disabling yEnc CRC validation via USENET_DISABLE_CRC_VALIDATION ([e0d10aa](https://github.com/nzbdav/nzbdav/commit/e0d10aa2605f034869885f68e9b1ac38e35dbb0e))
+* **nntp:** fail fast with a logged yEnc native self-test at startup ([ec48e9d](https://github.com/nzbdav/nzbdav/commit/ec48e9d2b879c8cff3c5115f32d570acd923056c))
+* **nntp:** speed up health checks and import existence probes with pipelined STAT ([#472](https://github.com/nzbdav/nzbdav/issues/472)) ([b0a93b8](https://github.com/nzbdav/nzbdav/commit/b0a93b8040c4b537b42d927d29ff9950ee8629d5)), closes [#60](https://github.com/nzbdav/nzbdav/issues/60)
+* **queue:** adopt NzbDav.SharpCompress for RAR and 7z metadata parsing ([#466](https://github.com/nzbdav/nzbdav/issues/466)) ([fd1bd62](https://github.com/nzbdav/nzbdav/commit/fd1bd62e7ce87b4c66689c7ad3f7256f1cf02643))
+* **queue:** allow moving queue items to the top ([#473](https://github.com/nzbdav/nzbdav/issues/473)) ([1d63c96](https://github.com/nzbdav/nzbdav/commit/1d63c96d90d98133c2f6df231a10c0127da8de39))
+* **repairs:** smooth out stat cliff bug, add aging function ([6012990](https://github.com/nzbdav/nzbdav/commit/60129902894549ee4679bb94a29758bae268adda))
+* **sab:** allow addurl fetches from trusted private hosts ([e7c27e7](https://github.com/nzbdav/nzbdav/commit/e7c27e7c1b06fc388b3184c0a9b817208df92fee)), closes [#433](https://github.com/nzbdav/nzbdav/issues/433)
+* **sab:** allow NZB grabs from LAN indexers like Prowlarr and NZBHydra2 ([57bfe8b](https://github.com/nzbdav/nzbdav/commit/57bfe8b07c94e99ab74998ef6551a948c9aa8b4e))
+* **ui:** reset Overview statistics (all or per provider) from Maintenance settings ([#444](https://github.com/nzbdav/nzbdav/issues/444)) ([97e1dfe](https://github.com/nzbdav/nzbdav/commit/97e1dfe8693e331f858a1be99b0bf1b54cf5a6d5))
+* **ui:** show client identity on Active Reads ([#469](https://github.com/nzbdav/nzbdav/issues/469)) ([4fdb772](https://github.com/nzbdav/nzbdav/commit/4fdb77258da0b3e521e86e224633ffa2d64e2c4f))
+
+
+### Bug Fixes
+
+* **ci:** restore issue forms by removing empty title fields ([#475](https://github.com/nzbdav/nzbdav/issues/475)) ([2bd2305](https://github.com/nzbdav/nzbdav/commit/2bd2305574d965f17821f8682f08ac9c8030cab6))
+* **deps:** bump NzbDav.SharpCompress to 0.53.1 with bounded 7z recursion ([bf4b436](https://github.com/nzbdav/nzbdav/commit/bf4b43606e00d8a9d7dbf426fa0e70adae3fbeb8))
+* **deps:** bump NzbDav.UsenetSharp to 3.1.3 for musl rapidyenc ([f009c9b](https://github.com/nzbdav/nzbdav/commit/f009c9b6479169f3dc5f32f1fe9813bc719fd1dc))
+* **deps:** bump SharpCompress so deep 7z coder chains fail safely ([cb71c15](https://github.com/nzbdav/nzbdav/commit/cb71c151e2171f404176ab7b206eb83c3a97c9b2))
+* **deps:** bump UsenetSharp so Alpine images get musl-native yEnc decode ([eeff02b](https://github.com/nzbdav/nzbdav/commit/eeff02bcf6e510739142b8bddd8bbb2c2c0426a0))
+* **deps:** resolve merge keeping UsenetSharp 3.1.3 and SharpCompress 0.53.1 ([d16405d](https://github.com/nzbdav/nzbdav/commit/d16405d0a1652ee4a78a678f9527fdc1cd99ba4e))
+* **docker:** container shutdown logs the backend exit code and fatal signal ([49a6473](https://github.com/nzbdav/nzbdav/commit/49a647325d8fb540536f2ad37d5ea2c09ade516f))
+* **docker:** log the backend exit code and fatal signal when the container shuts down ([edee229](https://github.com/nzbdav/nzbdav/commit/edee229fe6639a2907f8df37663c4bda28697aa9))
+* **health:** log NNTP transport timeouts as human-readable warnings ([#481](https://github.com/nzbdav/nzbdav/issues/481)) ([2e83a8c](https://github.com/nzbdav/nzbdav/commit/2e83a8c6b7e611b145e8a76e79d9a02092f28808))
+* **health:** resolve the depth setting regardless of casing ([742ea97](https://github.com/nzbdav/nzbdav/commit/742ea97b9eea0b64aa21811e178cdbeca307abbd))
+* **nntp:** connection permit release no longer throws from download callbacks ([95b18c0](https://github.com/nzbdav/nzbdav/commit/95b18c0bbfeb4fb0a4e0890849d70bf2cc44cd08))
+* **nntp:** fail fast on broken yEnc natives and catch Alpine decode crashes in CI ([c9c42eb](https://github.com/nzbdav/nzbdav/commit/c9c42eb5801a6f59ba271faa96709c3e50728d8c))
+* **nntp:** health checks and import probes stay fast when NNTP pipelining is on ([2b7d462](https://github.com/nzbdav/nzbdav/commit/2b7d462e30d27bb4a849dfe5a7ce580547e8cb86))
+* **nntp:** health checks no longer fail when a pipelined STAT session dies mid-sweep ([#476](https://github.com/nzbdav/nzbdav/issues/476)) ([97db88a](https://github.com/nzbdav/nzbdav/commit/97db88a2523024326d24c51c221939add38f788d))
+* **nntp:** keep health and import existence checks on concurrent STAT ([91704be](https://github.com/nzbdav/nzbdav/commit/91704bec7033a3b20b298d00276a65b66ea0e72d))
+* **nntp:** make connection-permit release safe inside completion callbacks ([a691499](https://github.com/nzbdav/nzbdav/commit/a6914994b537b7b47621ee91daff8b54d3ccd643))
+* **nntp:** only log provider recovery when the circuit actually opened ([5b33db1](https://github.com/nzbdav/nzbdav/commit/5b33db18bc82b34b023dfdba3b66efbca52f572c))
+* **nntp:** only log provider recovery when the circuit actually opened ([48e79d7](https://github.com/nzbdav/nzbdav/commit/48e79d7f8919a533b52472e6eb5283c30622c06f))
+* **nntp:** stop Progress wrappers racing pipelined STAT fallback reports ([#483](https://github.com/nzbdav/nzbdav/issues/483)) ([75c02cd](https://github.com/nzbdav/nzbdav/commit/75c02cd365aa68cdf7d4a16fc2643aee587945aa))
+* **nntp:** stop providers getting stuck in the probing state ([6150de7](https://github.com/nzbdav/nzbdav/commit/6150de71e2ced9b6f394910f25d1ec659206a23a))
+* **nntp:** stop providers getting stuck in the probing state ([0de9ace](https://github.com/nzbdav/nzbdav/commit/0de9aced5368e81e3ac9c65dea7d968643eef366))
+* **queue:** import obfuscated multi-volume RAR sets with duplicate subjects or incomplete volumes ([#471](https://github.com/nzbdav/nzbdav/issues/471)) ([4148813](https://github.com/nzbdav/nzbdav/commit/41488135b809802511eae8beae2b193c097b3fa3))
+* **queue:** progress broadcasts can no longer crash the backend from a timer callback ([016f6e0](https://github.com/nzbdav/nzbdav/commit/016f6e04c99d7fb1a24cd0703c0c8465c0aad494))
+* **queue:** queue processing starts only after the web host is healthy ([015ffdd](https://github.com/nzbdav/nzbdav/commit/015ffdddc27465e5de84ffcbb9dce41702020fbd))
+* **queue:** queue progress updates no longer crash the backend on a bad callback ([9fc3841](https://github.com/nzbdav/nzbdav/commit/9fc384167f9ad3eebdc17ce534298c2a43b2f13e))
+* **queue:** removing a blocklisted file no longer crashes the queue ([#446](https://github.com/nzbdav/nzbdav/issues/446)) ([97f0ebe](https://github.com/nzbdav/nzbdav/commit/97f0ebe63acf66f89dbfd30e2dfce5e81148e254))
+* **queue:** start queue processing only after the web host is serving ([8bd9240](https://github.com/nzbdav/nzbdav/commit/8bd924047b09e0119da72633ab0e0e4cc61e7ba5))
+* **ui:** keep live updates connected across backend websocket relay drops ([9f8e809](https://github.com/nzbdav/nzbdav/commit/9f8e809b312d3d4cfd03f2af090e5d6df2334811)), closes [#515](https://github.com/nzbdav/nzbdav/issues/515)
+* **ui:** live Overview and Queue updates no longer stall until refresh ([4499595](https://github.com/nzbdav/nzbdav/commit/44995954d66e74fb502baab7a0ac08c3e2657ca1))
+* **ui:** remove MaxListenersExceededWarning noise from container logs ([2b0afac](https://github.com/nzbdav/nzbdav/commit/2b0afac782bb683fba93115dce33cba823ae6260))
+* **ui:** stop stacking proxy timeout listeners on keep-alive sockets ([6fa0dda](https://github.com/nzbdav/nzbdav/commit/6fa0dda7b3c7715d2b60495951143d24b2ca8f00))
+* **ui:** stop the read sessions panel overflowing at full width ([ddd36be](https://github.com/nzbdav/nzbdav/commit/ddd36be9f6617ba2ee78a67ddf1c9e03e1ae8143))
+* **ui:** stop the read sessions panel overflowing at full width ([dfcfef0](https://github.com/nzbdav/nzbdav/commit/dfcfef042490274eb2214cd69a16f8d57d42ebc0))
+* **webdav:** clamp a /view range end past the file so response headers stay valid ([#447](https://github.com/nzbdav/nzbdav/issues/447)) ([92bdd81](https://github.com/nzbdav/nzbdav/commit/92bdd819a2d4f5711a9426053b28efef680b6d83))
+* **webdav:** treat corrupt Lazy RAR as permanent miss and schedule repair ([#484](https://github.com/nzbdav/nzbdav/issues/484)) ([318b8f7](https://github.com/nzbdav/nzbdav/commit/318b8f7db87c8473cc662488f58b4ab6b2ae9a45))
+
+
+### Performance Improvements
+
+* **queue:** cap import pipelining depth to bound first-segment memory ([b690fa8](https://github.com/nzbdav/nzbdav/commit/b690fa8508094a4fe0d3b6691dd9f53a7c524645))
+* **queue:** limit first-segment import pipelining to reduce memory spikes ([42f0273](https://github.com/nzbdav/nzbdav/commit/42f02737458459fb5850324613610462afc03c8c))
+
+
+### Documentation
+
+* add migration paths from nzbdav-dev and community forks ([96ff4c9](https://github.com/nzbdav/nzbdav/commit/96ff4c91f25f1a67cfce8a76003125f43f5b2179))
+* align Effort scale with Size (XS–XL) ([87ea0b9](https://github.com/nzbdav/nzbdav/commit/87ea0b92b92401c78f6eb359dd75b566139af6a2))
+* clarify homepage legal-use disclaimer for public domain content ([1edf4c4](https://github.com/nzbdav/nzbdav/commit/1edf4c4d67b7a5f2bc6b700f784af0999f9a5ff9))
+* document current issue triage and milestone practice ([25546bd](https://github.com/nzbdav/nzbdav/commit/25546bde44eee6f03d78310359d0651f2e282992))
+* document current issue triage and milestone practice ([568b471](https://github.com/nzbdav/nzbdav/commit/568b4719ee58a9e17710c1cd4ef51cb5e501c2a3))
+* document latest vs lts Docker image tags in README ([#458](https://github.com/nzbdav/nzbdav/issues/458)) ([46a62ec](https://github.com/nzbdav/nzbdav/commit/46a62ec81fc313867edd73c5fa2e73394345adec))
+* feature Discord invite in community and footer socials ([258ad3f](https://github.com/nzbdav/nzbdav/commit/258ad3f53f594e65ceca33ac655e1e59005d44ed))
+* hide Made with Zensical footer credit ([13c6a7b](https://github.com/nzbdav/nzbdav/commit/13c6a7b36a4e949bb6bf09a0d5cf0ed7c25b0324))
+* note NzbDAV as a fully supported DUMB core module ([776f10e](https://github.com/nzbdav/nzbdav/commit/776f10edf7a579e9e5c9df7aaf7f22bf0ad73e7a))
+* note same-origin /ws WebSocket requirement for reverse proxies ([a4168e7](https://github.com/nzbdav/nzbdav/commit/a4168e75d70540ded5dcd5c56b6dd6f05e5279c0))
+* rebuild nzbdav.com as a branded product docs site ([2d1a6f7](https://github.com/nzbdav/nzbdav/commit/2d1a6f703b4ae694fb15a1552ccc684ec3e385b2))
+* rebuild nzbdav.com site with branded guides and settings reference ([64a215d](https://github.com/nzbdav/nzbdav/commit/64a215d5cbffbd8cfd4817db9a2b5c5f2f1579e5))
+* require breaking commits for migrations and breaking changes ([de96b56](https://github.com/nzbdav/nzbdav/commit/de96b563ed64ff37a9ada498e7298e658fd5d822))
+* require human-friendly log events for stack dumps ([9b69c8f](https://github.com/nzbdav/nzbdav/commit/9b69c8f20b8f0d7a9cb48aab96ccb2d18955ed19))
+* **ui:** shrink homepage hero screenshot so it dominates less ([ddcc7c4](https://github.com/nzbdav/nzbdav/commit/ddcc7c48bedc059370fa2f430f3d961420a2c7d6))
+* **ui:** use product logo in header and mid-size the hero screenshot ([5fec824](https://github.com/nzbdav/nzbdav/commit/5fec8241896c408ddfd665dc1bb240d6e9efe7d0))
+* **ui:** use README product screenshot as the homepage hero ([37bdb9d](https://github.com/nzbdav/nzbdav/commit/37bdb9d4dfe4d9c9f52b2b13846d23f188376997))
+* use Issue Priority/Effort fields instead of labels ([a04f392](https://github.com/nzbdav/nzbdav/commit/a04f39204ad73a16bbfc6632dbb749f9ab808850))
+* use NzbDAV casing, add alternatives comparison, shrink badges ([c2db122](https://github.com/nzbdav/nzbdav/commit/c2db122840990f360f86b1fb4aec40a08867b364))
+* use NZBDav Ecosystem project fields for Priority and Effort ([a5786ba](https://github.com/nzbdav/nzbdav/commit/a5786ba97a226140a4944b87ef5ef3362e61b8df))
+
 ## [0.7.25](https://github.com/nzbdav/nzbdav/compare/v0.7.24...v0.7.25) (2026-07-17)
 
 
