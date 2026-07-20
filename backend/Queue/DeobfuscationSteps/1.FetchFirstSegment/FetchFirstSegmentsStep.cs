@@ -78,7 +78,9 @@ public static class FetchFirstSegmentsStep
         IProgress<int>? progress
     )
     {
-        var depth = configManager.GetPipeliningDepth();
+        // Import fetches don't benefit from deep BODY windows; cap to bound
+        // peak decoded-article memory at boot (~750 KB × depth per connection).
+        var depth = Math.Min(configManager.GetPipeliningDepth(), 16);
         var segmentIds = files.Select(x => x.Segments[0].MessageId).ToList();
         var results = new NzbFileWithFirstSegment?[files.Count];
         var indexBySegmentId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
