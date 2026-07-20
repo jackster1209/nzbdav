@@ -48,63 +48,83 @@ Special thanks to the forks and contributors whose ideas we absorbed:
 ## Features
 
 * 📁 **WebDAV server**
+  
   Host your virtual filesystem over HTTP(S)
 
 * ☁️ **Mount NZB documents**
+  
   Browse NZB contents instantly, no download needed
 
 * 📽️ **Full streaming & seeking**
+  
   Jump to any point in your video streams
 
 * 🚀 **NNTP article pipelining**
+  
   Optional pipelined article fetches for higher throughput and faster seeks
 
 * 🗃️ **Archive streaming**
+  
   View, stream, and seek inside RAR and 7z archives
 
 * 🔓 **Password-protected archives**
+  
   Stream encrypted content transparently
 
 * 🔀 **Multiple Usenet providers**
+  
   Automatic failover with per-provider circuit breakers
 
 * 📊 **Live operations dashboard**
+  
   Throughput, latency, errors, active reads, provider usage, failover saves, and indexer activity
 
 * 🧭 **Provider routing and limits**
+  
   Cascade priorities, per-provider data caps, usage resets, and connection benchmarking
 
 * 🔎 **Built-in indexer search**
+  
   Configure Newznab indexers, track API usage, search them manually, and mount results
 
 * 🚫 **Search exclude filters**
+  
   Manual regex excludes plus auto-synced remote lists (e.g. TRaSH) with refresh status
 
 * 🎛️ **Search profiles and adapters**
+  
   Expose selected indexers through token-scoped Addon, Newznab, and JSON APIs
 
 * 🐕 **Watchdog playback failover**
+  
   Verify candidates, retry failed releases, and inspect each playback attempt
 
 * 🛡️ **Warden dead-release ledger**
+  
   Remember unavailable releases, combine trusted remote ledgers, and import, export, or back up the data
 
 * 📡 **Watchtower proactive resolution**
+  
   Keep wanted movies and episodes mapped to verified releases before playback
 
 * 📜 **Live log viewer**
+  
   Filter, follow, and download backend logs from the admin UI
 
 * 🗂️ **WebDAV management**
+  
   Browse, download, and delete eligible virtual filesystem items from the UI
 
 * 💙 **Health checks & optional repairs**
+  
   Monitor content health and trigger replacements through Radarr/Sonarr when configured
 
 * 🧩 **SABnzbd-compatible API**
+  
   Drop-in replacement for SABnzbd
 
 * 🙌 **Sonarr/Radarr integration**
+  
   Import through Rclone symlinks or lightweight STRM files
 
 ## Quick start
