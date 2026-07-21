@@ -2,6 +2,7 @@ using NzbWebDAV.Clients.Usenet;
 using NzbWebDAV.Clients.Usenet.Models;
 using NzbWebDAV.Config;
 using NzbWebDAV.Exceptions;
+using NzbWebDAV.Extensions;
 using NzbWebDAV.Models;
 using UsenetSharp.Models;
 
@@ -36,12 +37,87 @@ public class CreateNewConnectionTests
             var details = MakeDetails();
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            var ex = await Assert.ThrowsAsync<CouldNotConnectToUsenetException>(async () =>
                 await UsenetStreamingClient.CreateNewConnection(details, () => fake, CancellationToken.None));
 
             sw.Stop();
+            Assert.Contains("timed out", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("nntp.example:563", ex.Message, StringComparison.Ordinal);
+            Assert.True(ex.InnerException!.IsCancellationException());
             Assert.True(sw.Elapsed < TimeSpan.FromSeconds(5),
                 $"Expected timeout well under OS connect default; elapsed={sw.Elapsed}");
+            Assert.Equal(1, fake.DisposeCount);
+        }
+        finally
+        {
+            UsenetStreamingClient.ConnectTimeout = previous;
+        }
+    }
+
+    [Fact]
+    public async Task CreateNewConnection_TimesOutHungAuthenticate()
+    {
+        var previous = UsenetStreamingClient.ConnectTimeout;
+        UsenetStreamingClient.ConnectTimeout = TimeSpan.FromMilliseconds(100);
+        try
+        {
+            var fake = new HandshakeNntpClient { HangAuthenticate = true };
+            var details = MakeDetails();
+
+            var ex = await Assert.ThrowsAsync<CouldNotLoginToUsenetException>(async () =>
+                await UsenetStreamingClient.CreateNewConnection(details, () => fake, CancellationToken.None));
+
+            Assert.Contains("timed out", ex.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("nntp.example:563", ex.Message, StringComparison.Ordinal);
+            Assert.True(ex.InnerException!.IsCancellationException());
+            Assert.True(fake.Connected);
+            Assert.Equal(1, fake.DisposeCount);
+        }
+        finally
+        {
+            UsenetStreamingClient.ConnectTimeout = previous;
+        }
+    }
+
+    [Fact]
+    public async Task CreateNewConnection_PropagatesCallerCancellationAsOperationCanceled()
+    {
+        var previous = UsenetStreamingClient.ConnectTimeout;
+        UsenetStreamingClient.ConnectTimeout = TimeSpan.FromSeconds(30);
+        using var cts = new CancellationTokenSource();
+        try
+        {
+            var fake = new HandshakeNntpClient { HangConnect = true };
+            var details = MakeDetails();
+            var connectTask = UsenetStreamingClient.CreateNewConnection(details, () => fake, cts.Token);
+            await cts.CancelAsync();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await connectTask);
+            Assert.Equal(1, fake.DisposeCount);
+        }
+        finally
+        {
+            UsenetStreamingClient.ConnectTimeout = previous;
+        }
+    }
+
+    [Fact]
+    public async Task CreateNewConnection_DoesNotTypeUnrelatedCancellationAsConnectTimeout()
+    {
+        var previous = UsenetStreamingClient.ConnectTimeout;
+        UsenetStreamingClient.ConnectTimeout = TimeSpan.FromSeconds(30);
+        try
+        {
+            var fake = new HandshakeNntpClient
+            {
+                ConnectException = new OperationCanceledException("internal cancel"),
+            };
+            var details = MakeDetails();
+
+            var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+                await UsenetStreamingClient.CreateNewConnection(details, () => fake, CancellationToken.None));
+
+            Assert.Equal("internal cancel", ex.Message);
             Assert.Equal(1, fake.DisposeCount);
         }
         finally
@@ -128,6 +204,8 @@ public class CreateNewConnectionTests
     private sealed class HandshakeNntpClient : NntpClient
     {
         public bool HangConnect { get; init; }
+        public bool HangAuthenticate { get; init; }
+        public Exception? ConnectException { get; init; }
         public Exception? AuthenticateException { get; init; }
         public bool Connected { get; private set; }
         public int DisposeCount { get; private set; }
@@ -144,24 +222,33 @@ public class CreateNewConnectionTests
                 return;
             }
 
+            if (ConnectException is not null)
+                throw ConnectException;
+
             cancellationToken.ThrowIfCancellationRequested();
             Connected = true;
         }
 
-        public override Task<UsenetResponse> AuthenticateAsync(
+        public override async Task<UsenetResponse> AuthenticateAsync(
             string user, string pass, CancellationToken cancellationToken)
         {
+            if (HangAuthenticate)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return default!;
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             AuthenticateCount++;
             LastAuthUser = user;
             LastAuthPass = pass;
             if (AuthenticateException is not null)
                 throw AuthenticateException;
-            return Task.FromResult(new UsenetResponse
+            return new UsenetResponse
             {
                 ResponseCode = (int)UsenetResponseType.AuthenticationAccepted,
                 ResponseMessage = "281 Ok",
-            });
+            };
         }
 
         public override Task<UsenetStatResponse> StatAsync(
