@@ -4,6 +4,7 @@ import {
     canEditCategoryMappings,
     canEditReleaseSelection,
     isMigrationWorkActive,
+    loadTableRetainingLastGood,
     runUiMutation,
     type SessionStatus,
 } from "./use-altmount-migration";
@@ -82,5 +83,33 @@ describe("runUiMutation", () => {
         )).resolves.toBe(false);
         expect(recordError).toHaveBeenCalledOnce();
         expect(recordError).toHaveBeenCalledWith("API rejected the mutation");
+    });
+});
+
+describe("loadTableRetainingLastGood", () => {
+    it("commits a successful response", async () => {
+        const commit = vi.fn();
+        const recordError = vi.fn();
+
+        await expect(loadTableRetainingLastGood(
+            () => Promise.resolve(["fresh"]),
+            commit,
+            recordError,
+        )).resolves.toBe(true);
+        expect(commit).toHaveBeenCalledWith(["fresh"]);
+        expect(recordError).not.toHaveBeenCalled();
+    });
+
+    it("records a failure without replacing the last committed data", async () => {
+        const commit = vi.fn();
+        const recordError = vi.fn();
+
+        await expect(loadTableRetainingLastGood(
+            () => Promise.reject(new Error("table unavailable")),
+            commit,
+            recordError,
+        )).resolves.toBe(false);
+        expect(commit).not.toHaveBeenCalled();
+        expect(recordError).toHaveBeenCalledWith("table unavailable");
     });
 });

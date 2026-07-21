@@ -22,6 +22,7 @@ import {
     canEditCategoryMappings,
     canEditReleaseSelection,
     isMigrationWorkActive,
+    loadTableRetainingLastGood,
     useAltmountMigration,
 } from "./use-altmount-migration";
 
@@ -365,15 +366,25 @@ function ScanStep({ m, onReview }: { m: Hook; onReview: () => void }) {
 
 function ReviewStep({ m, onRun }: { m: Hook; onRun: () => void }) {
     const [collisions, setCollisions] = useState<CollisionGroup[]>([]);
+    const [collisionsLoading, setCollisionsLoading] = useState(true);
+    const [collisionLoadError, setCollisionLoadError] = useState<string | null>(null);
     const [confirmRun, setConfirmRun] = useState(false);
 
     const reloadCollisions = useCallback(() => {
-        void m.loadCollisions().then(setCollisions).catch(() => setCollisions([]));
+        setCollisionsLoading(true);
+        void loadTableRetainingLastGood(
+            m.loadCollisions,
+            (groups) => {
+                setCollisions(groups);
+                setCollisionLoadError(null);
+            },
+            setCollisionLoadError,
+        ).finally(() => setCollisionsLoading(false));
     }, [m]);
     useEffect(() => reloadCollisions(), [reloadCollisions]);
 
     const summary = m.summary;
-    const canRun = !!summary?.canRun;
+    const canRun = !!summary?.canRun && !collisionsLoading && collisionLoadError === null;
     const needsFreshScan = m.status?.sessionStatus !== "scanned";
     const onlyAlreadyMigrated = !!summary && summary.counts.submittable === 0 && summary.counts.alreadyMigrated > 0;
 
@@ -395,7 +406,13 @@ function ReviewStep({ m, onRun }: { m: Hook; onRun: () => void }) {
                             {onlyAlreadyMigrated ? "Continue to links" : "Start migration"}
                         </Button>
                         {!canRun && (
-                            needsFreshScan ? (
+                            collisionsLoading ? (
+                                <span className="text-xs text-base-content/55">Loading collision review…</span>
+                            ) : collisionLoadError ? (
+                                <span className="text-xs text-error">
+                                    Reload the collision review successfully before starting.
+                                </span>
+                            ) : needsFreshScan ? (
                                 <span className="text-xs text-base-content/55">
                                     Complete a new scan before starting another migration.
                                 </span>
@@ -407,6 +424,19 @@ function ReviewStep({ m, onRun }: { m: Hook; onRun: () => void }) {
                         )}
                     </div>
                 </Section>
+            )}
+
+            {collisionLoadError && (
+                <Alert className="alert-soft text-sm" variant="danger">
+                    <Icon name="error" className="!text-[18px]" />
+                    <span>
+                        Collision review could not be loaded: {collisionLoadError}. The last successful results are
+                        retained, and starting is disabled until a refresh succeeds.
+                    </span>
+                    <Button variant="outline" size="small" disabled={collisionsLoading} onClick={reloadCollisions}>
+                        Retry
+                    </Button>
+                </Alert>
             )}
 
             <CollisionPanel groups={collisions} />
@@ -476,18 +506,22 @@ function ReleaseGrid({ m, onChanged }: { m: Hook; onChanged: () => void }) {
     });
     const [rows, setRows] = useState<ReleaseRow[]>([]);
     const [total, setTotal] = useState(0);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const editable = canEditReleaseSelection(m.status?.sessionStatus);
 
     const load = useCallback(async (f: ReleaseFilters) => {
         setLoading(true);
         try {
-            const data = await m.loadReleases(f);
-            setRows(data.releases);
-            setTotal(data.total);
-        } catch {
-            setRows([]);
-            setTotal(0);
+            await loadTableRetainingLastGood(
+                () => m.loadReleases(f),
+                (data) => {
+                    setRows(data.releases);
+                    setTotal(data.total);
+                    setLoadError(null);
+                },
+                setLoadError,
+            );
         } finally {
             setLoading(false);
         }
@@ -506,6 +540,13 @@ function ReleaseGrid({ m, onChanged }: { m: Hook; onChanged: () => void }) {
 
     return (
         <Section icon="list" title="Releases" subtitle={`${total} release(s)`}>
+            {loadError && (
+                <Alert className="alert-soft mb-3 text-sm" variant="danger">
+                    <Icon name="error" className="!text-[18px]" />
+                    Release data could not be loaded: {loadError}. The last successful results are shown when available.
+                </Alert>
+            )}
+
             <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Select className="select-sm" value={filters.verdict} onChange={(e) => setFilters({ ...filters, verdict: e.target.value, page: 1 })}>
                     <option value="">All verdicts</option>
@@ -551,6 +592,8 @@ function ReleaseGrid({ m, onChanged }: { m: Hook; onChanged: () => void }) {
                     <tbody>
                         {loading && rows.length === 0 ? (
                             <tr><td colSpan={6}><div className="flex justify-center py-6"><Spinner className="h-5 w-5" /></div></td></tr>
+                        ) : loadError && rows.length === 0 ? (
+                            <tr><td colSpan={6}><div className="py-6 text-center text-sm text-error">Release data could not be loaded.</div></td></tr>
                         ) : rows.length === 0 ? (
                             <tr><td colSpan={6}><div className="py-6 text-center text-sm text-base-content/50">No releases match.</div></td></tr>
                         ) : rows.map((r) => (
@@ -783,16 +826,21 @@ function SymlinkStep({ m }: { m: Hook }) {
 function SymlinkResults({ m }: { m: Hook }) {
     const [filters, setFilters] = useState<SymlinkFilters>({ page: 1, pageSize: 100, status: "rewrite", q: "", sort: "" });
     const [data, setData] = useState<{ total: number; counts: Record<string, number>; rows: SymlinkRow[] }>({ total: 0, counts: {}, rows: [] });
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [confirmApply, setConfirmApply] = useState(false);
 
     const load = useCallback(async (f: SymlinkFilters) => {
         setLoading(true);
         try {
-            const res = await m.loadSymlinks(f);
-            setData({ total: res.total, counts: res.counts, rows: res.rows });
-        } catch {
-            setData({ total: 0, counts: {}, rows: [] });
+            await loadTableRetainingLastGood(
+                () => m.loadSymlinks(f),
+                (res) => {
+                    setData({ total: res.total, counts: res.counts, rows: res.rows });
+                    setLoadError(null);
+                },
+                setLoadError,
+            );
         } finally {
             setLoading(false);
         }
@@ -804,7 +852,7 @@ function SymlinkResults({ m }: { m: Hook }) {
     const rewrites = counts["rewrite"] ?? 0;
     const applied = counts["applied"] ?? 0;
     const failed = counts["failed"] ?? 0;
-    const canApply = rewrites > 0 && m.busy !== "symlink-apply";
+    const canApply = !loading && loadError === null && rewrites > 0 && m.busy !== "symlink-apply";
     const pages = Math.max(1, Math.ceil(data.total / filters.pageSize));
 
     const doApply = () => {
@@ -814,6 +862,14 @@ function SymlinkResults({ m }: { m: Hook }) {
 
     return (
         <Section icon="rule" title="Rewrite plan" subtitle="Review before applying. Only 'rewrite' rows change; the rest are informational.">
+            {loadError && (
+                <Alert className="alert-soft mb-4 text-sm" variant="danger">
+                    <Icon name="error" className="!text-[18px]" />
+                    Symlink data could not be loaded: {loadError}. The last successful results are retained, and applying
+                    rewrites is disabled until a refresh succeeds.
+                </Alert>
+            )}
+
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 <StatTile label="Rewrite" value={rewrites} tone="success" help={SYMLINK_STATUS_HELP.rewrite} />
                 <StatTile label="Orphan" value={counts["orphan"] ?? 0} tone={(counts["orphan"] ?? 0) > 0 ? "warning" : undefined} help={SYMLINK_STATUS_HELP.orphan} />
@@ -828,7 +884,7 @@ function SymlinkResults({ m }: { m: Hook }) {
                     {m.busy === "symlink-apply" ? <Spinner className="h-4 w-4" /> : <Icon name="published_with_changes" className="!text-[18px]" />}
                     Apply {rewrites} rewrite(s)
                 </Button>
-                {rewrites === 0 && applied === 0 && (
+                {!loading && !loadError && rewrites === 0 && applied === 0 && (
                     <span className="text-xs text-base-content/50">No rewrites to apply — every symlink is already correct, orphaned, or unrelated.</span>
                 )}
                 {applied > 0 && (
@@ -838,7 +894,7 @@ function SymlinkResults({ m }: { m: Hook }) {
 
             <SymlinkRestoreAction m={m} onRestored={() => void load(filters)} />
 
-            {!loading && rewrites === 0 && <HistoryCleanupAction m={m} />}
+            {!loading && !loadError && rewrites === 0 && <HistoryCleanupAction m={m} />}
 
             <div className="mt-4 mb-3 flex flex-wrap items-center gap-2">
                 <Select className="select-sm" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}>
@@ -872,6 +928,8 @@ function SymlinkResults({ m }: { m: Hook }) {
                     <tbody>
                         {loading && data.rows.length === 0 ? (
                             <tr><td colSpan={4}><div className="flex justify-center py-6"><Spinner className="h-5 w-5" /></div></td></tr>
+                        ) : loadError && data.rows.length === 0 ? (
+                            <tr><td colSpan={4}><div className="py-6 text-center text-sm text-error">Symlink data could not be loaded.</div></td></tr>
                         ) : data.rows.length === 0 ? (
                             <tr><td colSpan={4}><div className="py-6 text-center text-sm text-base-content/50">No symlinks match.</div></td></tr>
                         ) : data.rows.map((r) => (

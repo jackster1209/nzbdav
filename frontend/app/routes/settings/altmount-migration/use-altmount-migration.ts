@@ -240,6 +240,20 @@ export async function runUiMutation(
     }
 }
 
+export async function loadTableRetainingLastGood<T>(
+    load: () => Promise<T>,
+    commit: (data: T) => void,
+    recordError: (message: string) => void,
+): Promise<boolean> {
+    try {
+        commit(await load());
+        return true;
+    } catch (e) {
+        recordError(e instanceof Error ? e.message : String(e));
+        return false;
+    }
+}
+
 export function beginLatestRequest(generation: { current: number }): () => boolean {
     const requestGeneration = ++generation.current;
     return () => requestGeneration === generation.current;
