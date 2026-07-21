@@ -84,6 +84,11 @@ public sealed class UsenetMigrationController(
     [HttpPut("api/altmount-migration/categories")]
     public Task<IActionResult> PutCategories([FromBody] CategoryMapRequest request) => GuardedAsync(async () =>
     {
+        var session = await store.GetSessionAsync(HttpContext.RequestAborted).ConfigureAwait(false);
+        if (!CanEditCategoryMappings(session.Status))
+            throw new BadHttpRequestException(
+                "Category mappings can only be changed before migration work starts.");
+
         if (request.Mappings is null || request.Mappings.Count == 0)
             throw new BadHttpRequestException("At least one mapping is required.");
 
@@ -193,6 +198,11 @@ public sealed class UsenetMigrationController(
     [HttpPut("api/altmount-migration/releases/include")]
     public Task<IActionResult> SetInclude([FromBody] IncludeRequest request) => GuardedAsync(async () =>
     {
+        var session = await store.GetSessionAsync(HttpContext.RequestAborted).ConfigureAwait(false);
+        if (!CanEditReleaseSelection(session.Status))
+            throw new BadHttpRequestException(
+                "Release inclusion can only be changed while reviewing a completed scan.");
+
         if (request.StoreRefs is null || request.StoreRefs.Count == 0)
             throw new BadHttpRequestException("storeRefs is required.");
 
@@ -681,6 +691,11 @@ public sealed class UsenetMigrationController(
     // --- helpers -----------------------------------------------------------
 
     internal static bool CanStartMigration(string sessionStatus) => sessionStatus == "scanned";
+
+    internal static bool CanEditCategoryMappings(string sessionStatus) =>
+        sessionStatus is "connected" or "mapped" or "scanned";
+
+    internal static bool CanEditReleaseSelection(string sessionStatus) => sessionStatus == "scanned";
 
     internal static bool IsMigrationWorkActive(string sessionStatus) =>
         sessionStatus is "scanning" or "running" or "paused" or "linking" or "applying";

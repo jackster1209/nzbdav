@@ -15,6 +15,34 @@ public class MigrationRunStateTests
         Assert.Equal(expected, UsenetMigrationController.CanStartMigration(status));
 
     [Theory]
+    [InlineData("connected", true)]
+    [InlineData("mapped", true)]
+    [InlineData("scanned", true)]
+    [InlineData("scanning", false)]
+    [InlineData("running", false)]
+    [InlineData("paused", false)]
+    [InlineData("complete", false)]
+    [InlineData("cancelled", false)]
+    [InlineData("linking", false)]
+    [InlineData("linked", false)]
+    [InlineData("applying", false)]
+    public void CategoryMappings_AreEditableOnlyBeforeMigrationWork(
+        string status, bool expected) =>
+        Assert.Equal(expected, UsenetMigrationController.CanEditCategoryMappings(status));
+
+    [Theory]
+    [InlineData("scanned", true)]
+    [InlineData("mapped", false)]
+    [InlineData("scanning", false)]
+    [InlineData("running", false)]
+    [InlineData("paused", false)]
+    [InlineData("complete", false)]
+    [InlineData("cancelled", false)]
+    [InlineData("linked", false)]
+    public void ReleaseSelection_IsEditableOnlyDuringReview(string status, bool expected) =>
+        Assert.Equal(expected, UsenetMigrationController.CanEditReleaseSelection(status));
+
+    [Theory]
     [InlineData("running", false)]
     [InlineData("paused", false)]
     [InlineData("complete", true)]

@@ -19,6 +19,8 @@ import {
     type SymlinkBackupInfo,
     type SymlinkPlanForm,
     type SymlinkRow,
+    canEditCategoryMappings,
+    canEditReleaseSelection,
     isMigrationWorkActive,
     useAltmountMigration,
 } from "./use-altmount-migration";
@@ -233,6 +235,7 @@ function ConnectStep({ m }: { m: Hook }) {
 
 function CategoriesStep({ m, onDone }: { m: Hook; onDone: () => void }) {
     const [draft, setDraft] = useState<CategoryMapRow[]>(m.categories);
+    const editable = canEditCategoryMappings(m.status?.sessionStatus);
     useEffect(() => setDraft(m.categories), [m.categories]);
 
     const update = (altmountCategory: string, patch: Partial<CategoryMapRow>) =>
@@ -279,7 +282,7 @@ function CategoriesStep({ m, onDone }: { m: Hook; onDone: () => void }) {
                                             className="input-sm w-full max-w-xs"
                                             placeholder="e.g. tv, movies"
                                             value={r.targetCategory ?? ""}
-                                            disabled={r.action === "exclude"}
+                                            disabled={!editable || r.action === "exclude"}
                                             onChange={(e) => update(r.altmountCategory, { targetCategory: e.target.value })}
                                         />
                                     </td>
@@ -287,6 +290,7 @@ function CategoriesStep({ m, onDone }: { m: Hook; onDone: () => void }) {
                                         <Select
                                             className="select-sm"
                                             value={r.action}
+                                            disabled={!editable}
                                             onChange={(e) => update(r.altmountCategory, { action: e.target.value })}
                                         >
                                             <option value="migrate">Migrate</option>
@@ -301,11 +305,15 @@ function CategoriesStep({ m, onDone }: { m: Hook; onDone: () => void }) {
             )}
 
             <div className="mt-4 flex items-center gap-3">
-                <Button variant="primary" disabled={m.busy === "categories"} onClick={save}>
+                <Button variant="primary" disabled={!editable || m.busy === "categories"} onClick={save}>
                     {m.busy === "categories" ? <Spinner className="h-4 w-4" /> : <Icon name="save" className="!text-[18px]" />}
                     Save mapping
                 </Button>
-                <span className="text-xs text-base-content/50">Saving a mapping requires a fresh scan to apply.</span>
+                <span className="text-xs text-base-content/50">
+                    {editable
+                        ? "Saving a mapping requires a fresh scan to apply."
+                        : "Category mappings are locked once migration work starts."}
+                </span>
             </div>
         </Section>
     );
@@ -469,6 +477,7 @@ function ReleaseGrid({ m, onChanged }: { m: Hook; onChanged: () => void }) {
     const [rows, setRows] = useState<ReleaseRow[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
+    const editable = canEditReleaseSelection(m.status?.sessionStatus);
 
     const load = useCallback(async (f: ReleaseFilters) => {
         setLoading(true);
@@ -551,6 +560,7 @@ function ReleaseGrid({ m, onChanged }: { m: Hook; onChanged: () => void }) {
                                         type="checkbox"
                                         className="checkbox checkbox-sm checkbox-primary"
                                         checked={r.included}
+                                        disabled={!editable || m.busy === "include"}
                                         onChange={() => toggleInclude(r)}
                                     />
                                 </td>

@@ -22,6 +22,14 @@ export function isMigrationWorkActive(status: SessionStatus | undefined): boolea
         || status === "linking" || status === "applying";
 }
 
+export function canEditCategoryMappings(status: SessionStatus | undefined): boolean {
+    return status === "connected" || status === "mapped" || status === "scanned";
+}
+
+export function canEditReleaseSelection(status: SessionStatus | undefined): boolean {
+    return status === "scanned";
+}
+
 export type CategoryMapRow = {
     altmountCategory: string;
     altmountDir?: string | null;
