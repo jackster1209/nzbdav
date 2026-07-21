@@ -185,7 +185,9 @@ Then open `http://localhost:3000` (self-hosted) or your DUMB service URL, create
 
 Chat on Discord, track releases on GitHub, and file issues when you need a durable bug report.
 
-[Join Discord `#nzbdav`](https://discord.gg/EJaptcg9UY){ .md-button .md-button--primary }
+Discord community transition started **July 21**. After joining, use the channel and role selector to enable **NzbDAV - SuperFork** for release notifications and development channels.
+
+[Join Discord](https://discord.gg/DAya7W6QMa){ .md-button .md-button--primary }
 [Repository](https://github.com/nzbdav/nzbdav){ .md-button }
 [Releases](https://github.com/nzbdav/nzbdav/releases){ .md-button }
 [Issues](https://github.com/nzbdav/nzbdav/issues){ .md-button }

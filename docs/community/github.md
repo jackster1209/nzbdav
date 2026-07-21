@@ -8,9 +8,9 @@ Chat with other operators, track development, and contribute.
 
     ---
 
-    Join **`#nzbdav`** for setup help, streaming tips, and informal discussion.
+    Discord community is moving to a new server (transition started **July 21**). Join, then use the channel and role selector to enable **NzbDAV - SuperFork** for release notifications and development channels — plus setup help, streaming tips, and informal discussion.
 
-    [:octicons-arrow-right-24: discord.gg/EJaptcg9UY](https://discord.gg/EJaptcg9UY)
+    [:octicons-arrow-right-24: discord.gg/DAya7W6QMa](https://discord.gg/DAya7W6QMa)
 
 -   :fontawesome-brands-github:{ .lg .middle } __Repository__
 
