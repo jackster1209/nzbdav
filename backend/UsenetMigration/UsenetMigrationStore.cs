@@ -416,6 +416,37 @@ public sealed class UsenetMigrationStore
     // --- submissions -------------------------------------------------------
 
     /// <summary>
+    /// Durably claims a pending release before its external queue mutation. The
+    /// assigned Nzo id is retained across retries, allowing crash recovery to
+    /// locate the exact queue/history item before deciding whether to resubmit.
+    /// </summary>
+    public async Task<MigrationSubmission> ClaimSubmissionAsync(
+        string storeRef, CancellationToken ct = default)
+    {
+        await using var ctx = ContextFactory();
+        var submission = await ctx.Submissions
+            .SingleOrDefaultAsync(x => x.StoreRef == storeRef, ct)
+            .ConfigureAwait(false)
+            ?? throw new InvalidOperationException(
+                $"Migration submission '{storeRef}' does not exist.");
+
+        if (submission.State is not "pending")
+            throw new InvalidOperationException(
+                $"Migration submission '{storeRef}' cannot be claimed from state '{submission.State}'.");
+
+        if (!Guid.TryParse(submission.NzoId, out var nzoId))
+            nzoId = Guid.NewGuid();
+
+        submission.NzoId = nzoId.ToString();
+        submission.State = "submitting";
+        submission.Attempt++;
+        submission.Error = null;
+        submission.UpdatedAt = DateTime.UtcNow;
+        await ctx.SaveChangesAsync(ct).ConfigureAwait(false);
+        return submission;
+    }
+
+    /// <summary>
     /// Loads-or-creates a submission row for <paramref name="storeRef"/>, applies
     /// <paramref name="mutate"/>, stamps <see cref="MigrationSubmission.UpdatedAt"/>,
     /// and persists. Used by the worker pool and reconciler to advance lifecycle

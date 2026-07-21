@@ -594,7 +594,8 @@ function RunStep({ m, onLinks }: { m: Hook; onLinks: () => void }) {
     const subs = m.status?.submissions ?? {};
     const terminal = (subs["completed"] ?? 0) + (subs["history_cleared"] ?? 0)
         + (subs["failed"] ?? 0) + (subs["evicted"] ?? 0) + (subs["skipped"] ?? 0);
-    const inFlight = (subs["pending"] ?? 0) + (subs["submitted"] ?? 0) + (subs["processing"] ?? 0);
+    const inFlight = (subs["pending"] ?? 0) + (subs["submitting"] ?? 0)
+        + (subs["submitted"] ?? 0) + (subs["processing"] ?? 0);
     const complete = status === "complete";
     const cancelled = status === "cancelled";
     const runFinished = cancelled || canLinkStep(status);
@@ -612,6 +613,7 @@ function RunStep({ m, onLinks }: { m: Hook; onLinks: () => void }) {
         >
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <StatTile label="Pending" value={subs["pending"] ?? 0} />
+                <StatTile label="Submitting" value={subs["submitting"] ?? 0} />
                 <StatTile label="Submitted" value={subs["submitted"] ?? 0} />
                 <StatTile label="Processing" value={subs["processing"] ?? 0} />
                 <StatTile label="Imported" value={(subs["completed"] ?? 0) + (subs["history_cleared"] ?? 0)} tone="success" />

@@ -137,6 +137,46 @@ public class UsenetMigrationStoreTests
     }
 
     [Fact]
+    public async Task ClaimSubmission_PersistsIdentityBeforeSubmit_AndReusesItOnRetry()
+    {
+        await using var h = await MigrationTestHarness.CreateAsync();
+        await using (var seed = h.Mig())
+        {
+            seed.Releases.Add(new MigrationRelease
+            {
+                StoreRef = "store-claim", StoreBasename = "x", SubmitFileName = "x",
+                QueueFileName = "x.nzb", JobName = "x", Verdict = "green",
+                VerdictReasons = "[]", ScannedAt = DateTime.UtcNow,
+            });
+            seed.Submissions.Add(new MigrationSubmission
+            {
+                StoreRef = "store-claim", State = "pending", UpdatedAt = DateTime.UtcNow,
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        var firstClaim = await h.Store.ClaimSubmissionAsync("store-claim");
+        var claimedId = Assert.IsType<string>(firstClaim.NzoId);
+        Assert.True(Guid.TryParse(claimedId, out _));
+        Assert.Equal("submitting", firstClaim.State);
+        Assert.Equal(1, firstClaim.Attempt);
+
+        // Recovery may prove that AddFile never committed. Its retry must retain
+        // the original id rather than creating another ambiguous identity.
+        await h.Store.UpdateSubmissionAsync("store-claim", s => s.State = "pending");
+        var retryClaim = await h.Store.ClaimSubmissionAsync("store-claim");
+
+        Assert.Equal(claimedId, retryClaim.NzoId);
+        Assert.Equal("submitting", retryClaim.State);
+        Assert.Equal(2, retryClaim.Attempt);
+
+        await using var check = h.Mig();
+        var persisted = await check.Submissions.SingleAsync();
+        Assert.Equal(claimedId, persisted.NzoId);
+        Assert.Equal("submitting", persisted.State);
+    }
+
+    [Fact]
     public async Task CancelRun_ClosesDurableRun_AndFreshScanCreatesNewRun()
     {
         await using var h = await MigrationTestHarness.CreateAsync();

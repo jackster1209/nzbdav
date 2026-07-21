@@ -191,7 +191,8 @@ public sealed class UsenetMigrationRunner : BackgroundService
     {
         await using var ctx = _store.NewContext();
         var inFlight = await ctx.Submissions
-            .CountAsync(s => s.State == "pending" || s.State == "submitted" || s.State == "processing", ct)
+            .CountAsync(s => s.State == "pending" || s.State == "submitting"
+                || s.State == "submitted" || s.State == "processing", ct)
             .ConfigureAwait(false);
         if (inFlight > 0)
             return;
