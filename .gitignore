@@ -30,3 +30,13 @@ BenchmarkDotNet.Artifacts/
 #################
 
 /site/
+#######################
+# Local runtime state #
+#######################
+
+db.sqlite
+db.sqlite-shm
+db.sqlite-wal
+metrics.sqlite
+metrics.sqlite-shm
+metrics.sqlite-wal
