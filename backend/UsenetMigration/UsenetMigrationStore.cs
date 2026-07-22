@@ -117,6 +117,42 @@ public sealed class UsenetMigrationStore
     }
 
     /// <summary>
+    /// Atomically claims a legal state transition. Competing operations that
+    /// require the same source state cannot both succeed. Repeating the same
+    /// operation after it reached its target is reported as idempotent success.
+    /// </summary>
+    internal async Task<MigrationSessionTransitionResult> TryTransitionSessionAsync(
+        MigrationSessionTransition transition,
+        CancellationToken ct = default)
+    {
+        await using var ctx = ContextFactory();
+        await GetOrCreateSessionAsync(ctx, ct).ConfigureAwait(false);
+
+        var rule = MigrationSessionStateMachine.GetRule(transition);
+        var sourceStatuses = rule.SourceStatuses.ToArray();
+        var now = DateTime.UtcNow;
+        var changed = await ctx.SessionState
+            .Where(s => s.Id == SessionId && sourceStatuses.Contains(s.Status))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(s => s.Status, rule.TargetStatus)
+                .SetProperty(s => s.UpdatedAt, now), ct)
+            .ConfigureAwait(false);
+
+        var currentStatus = await ctx.SessionState.AsNoTracking()
+            .Where(s => s.Id == SessionId)
+            .Select(s => s.Status)
+            .SingleAsync(ct)
+            .ConfigureAwait(false);
+
+        var outcome = changed == 1
+            ? MigrationSessionTransitionOutcome.Applied
+            : string.Equals(currentStatus, rule.TargetStatus, StringComparison.Ordinal)
+                ? MigrationSessionTransitionOutcome.AlreadyApplied
+                : MigrationSessionTransitionOutcome.Rejected;
+        return new MigrationSessionTransitionResult(outcome, currentStatus);
+    }
+
+    /// <summary>
     /// Starts a durable migration run, or resumes the current one after a pause.
     /// The run survives subsequent wizard resets as provenance.
     /// </summary>
@@ -186,21 +222,10 @@ public sealed class UsenetMigrationStore
     /// </summary>
     public async Task<string> BeginCancellationAsync(CancellationToken ct = default)
     {
-        await using var ctx = ContextFactory();
-        await GetOrCreateSessionAsync(ctx, ct).ConfigureAwait(false);
-        var now = DateTime.UtcNow;
-        await ctx.SessionState
-            .Where(s => s.Id == SessionId && (s.Status == "running" || s.Status == "paused"))
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(s => s.Status, "cancelling")
-                .SetProperty(s => s.UpdatedAt, now), ct)
+        var result = await TryTransitionSessionAsync(
+                MigrationSessionTransition.BeginCancellation, ct)
             .ConfigureAwait(false);
-
-        return await ctx.SessionState.AsNoTracking()
-            .Where(s => s.Id == SessionId)
-            .Select(s => s.Status)
-            .SingleAsync(ct)
-            .ConfigureAwait(false);
+        return result.CurrentStatus;
     }
 
     /// <summary>

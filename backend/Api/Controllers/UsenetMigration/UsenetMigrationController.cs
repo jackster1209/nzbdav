@@ -692,15 +692,21 @@ public sealed class UsenetMigrationController(
 
     // --- helpers -----------------------------------------------------------
 
-    internal static bool CanStartMigration(string sessionStatus) => sessionStatus == "scanned";
+    internal static bool CanConnect(string sessionStatus) =>
+        MigrationSessionStateMachine.CanTransition(MigrationSessionTransition.Connect, sessionStatus);
+
+    internal static bool CanStartMigration(string sessionStatus) =>
+        MigrationSessionStateMachine.CanTransition(MigrationSessionTransition.StartRun, sessionStatus);
 
     internal static bool CanEditCategoryMappings(string sessionStatus) =>
-        sessionStatus is "connected" or "mapped" or "scanned";
+        MigrationSessionStateMachine.CanTransition(
+            MigrationSessionTransition.MapCategories, sessionStatus);
 
-    internal static bool CanEditReleaseSelection(string sessionStatus) => sessionStatus == "scanned";
+    internal static bool CanEditReleaseSelection(string sessionStatus) =>
+        sessionStatus == MigrationSessionStatus.Scanned;
 
     internal static bool IsMigrationWorkActive(string sessionStatus) =>
-        sessionStatus is "scanning" or "running" or "paused" or "cancelling" or "linking" or "applying";
+        MigrationSessionStateMachine.IsWorkActive(sessionStatus);
 
     internal static async Task ResetWizardAsync(
         UsenetMigrationStore migrationStore, CancellationToken ct = default)
@@ -758,13 +764,20 @@ public sealed class UsenetMigrationController(
     }
 
     internal static bool CanStartScan(string sessionStatus) =>
-        sessionStatus is not ("running" or "paused" or "cancelling");
+        MigrationSessionStateMachine.CanTransition(
+            MigrationSessionTransition.StartScan, sessionStatus);
 
-    internal static bool CanResumeMigration(string sessionStatus) => sessionStatus == "paused";
+    internal static bool CanResumeMigration(string sessionStatus) =>
+        MigrationSessionStateMachine.CanTransition(
+            MigrationSessionTransition.ResumeRun, sessionStatus);
 
-    internal static bool CanPauseMigration(string sessionStatus) => sessionStatus == "running";
+    internal static bool CanPauseMigration(string sessionStatus) =>
+        MigrationSessionStateMachine.CanTransition(
+            MigrationSessionTransition.PauseRun, sessionStatus);
 
-    internal static bool CanCancelMigration(string sessionStatus) => sessionStatus is "running" or "paused";
+    internal static bool CanCancelMigration(string sessionStatus) =>
+        MigrationSessionStateMachine.CanTransition(
+            MigrationSessionTransition.BeginCancellation, sessionStatus);
 
     private static string RequireDir(string? path, string field)
     {

@@ -5,6 +5,25 @@ namespace NzbWebDAV.Tests.UsenetMigration;
 public class MigrationRunStateTests
 {
     [Theory]
+    [InlineData("idle", true)]
+    [InlineData("connected", true)]
+    [InlineData("mapped", true)]
+    [InlineData("scanned", true)]
+    [InlineData("complete", true)]
+    [InlineData("cancelled", true)]
+    [InlineData("linked", true)]
+    [InlineData("scanning", false)]
+    [InlineData("scan_cancelling", false)]
+    [InlineData("running", false)]
+    [InlineData("paused", false)]
+    [InlineData("cancelling", false)]
+    [InlineData("linking", false)]
+    [InlineData("applying", false)]
+    [InlineData("restoring", false)]
+    public void Connect_IsAllowedOnlyFromRestingStates(string status, bool expected) =>
+        Assert.Equal(expected, UsenetMigrationController.CanConnect(status));
+
+    [Theory]
     [InlineData("scanned", true)]
     [InlineData("running", false)]
     [InlineData("paused", false)]
@@ -46,13 +65,22 @@ public class MigrationRunStateTests
         Assert.Equal(expected, UsenetMigrationController.CanEditReleaseSelection(status));
 
     [Theory]
+    [InlineData("idle", false)]
+    [InlineData("connected", true)]
+    [InlineData("mapped", true)]
     [InlineData("running", false)]
     [InlineData("paused", false)]
     [InlineData("cancelling", false)]
+    [InlineData("scanning", false)]
+    [InlineData("scan_cancelling", false)]
+    [InlineData("linking", false)]
+    [InlineData("applying", false)]
+    [InlineData("restoring", false)]
     [InlineData("complete", true)]
     [InlineData("cancelled", true)]
     [InlineData("scanned", true)]
-    public void StartScan_IsBlockedOnlyByActiveRun(string status, bool expected) =>
+    [InlineData("linked", true)]
+    public void StartScan_IsAllowedOnlyFromSafeRestingStates(string status, bool expected) =>
         Assert.Equal(expected, UsenetMigrationController.CanStartScan(status));
 
     [Theory]
@@ -82,8 +110,10 @@ public class MigrationRunStateTests
     [InlineData("running", true)]
     [InlineData("paused", true)]
     [InlineData("cancelling", true)]
+    [InlineData("scan_cancelling", true)]
     [InlineData("linking", true)]
     [InlineData("applying", true)]
+    [InlineData("restoring", true)]
     [InlineData("idle", false)]
     [InlineData("connected", false)]
     [InlineData("mapped", false)]

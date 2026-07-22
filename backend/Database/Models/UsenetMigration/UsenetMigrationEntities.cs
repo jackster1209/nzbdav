@@ -9,7 +9,10 @@ public sealed class MigrationSessionState
 {
     public int Id { get; set; } = 1;
 
-    /// <summary>idle|connected|mapped|scanning|scanned|running|paused|cancelling|complete|linking|cancelled</summary>
+    /// <summary>
+    /// See MigrationSessionStatus for the canonical state values and
+    /// MigrationSessionStateMachine for legal transitions.
+    /// </summary>
     public string Status { get; set; } = "idle";
 
     public string? AltmountMetadataRoot { get; set; }
