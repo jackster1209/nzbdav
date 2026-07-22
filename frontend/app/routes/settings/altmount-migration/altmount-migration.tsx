@@ -85,6 +85,7 @@ function stepForStatus(status: SessionStatus | undefined): number {
         case "scanned": return 3;
         case "running":
         case "paused":
+        case "cancelling":
         case "complete":
         case "cancelled": return 4;
         // Step 6 is opt-in: it does not auto-advance from "complete", but once the
@@ -326,8 +327,9 @@ function CategoriesStep({ m, onDone }: { m: Hook; onDone: () => void }) {
 function ScanStep({ m, onReview }: { m: Hook; onReview: () => void }) {
     const status = m.status?.sessionStatus;
     const scanning = status === "scanning";
-    const runActive = status === "running" || status === "paused";
-    const scanned = status === "scanned" || status === "running" || status === "paused" || status === "complete";
+    const runActive = status === "running" || status === "paused" || status === "cancelling";
+    const scanned = status === "scanned" || status === "running" || status === "paused"
+        || status === "cancelling" || status === "complete";
 
     return (
         <Section icon="search" title="Scan the library" subtitle="Read every release, triage it, and detect collisions. No network traffic yet.">
@@ -657,18 +659,27 @@ function RunStep({ m, onLinks }: { m: Hook; onLinks: () => void }) {
         + (subs["submitted"] ?? 0) + (subs["processing"] ?? 0);
     const complete = status === "complete";
     const cancelled = status === "cancelled";
+    const cancelling = status === "cancelling";
     const runFinished = cancelled || canLinkStep(status);
     const submissionIssues = m.status?.submissionIssues ?? [];
 
     return (
         <Section
-            icon={complete ? "check_circle" : cancelled ? "cancel" : "rocket_launch"}
-            title={complete ? "Migration complete" : cancelled ? "Migration cancelled" : status === "paused" ? "Migration paused" : "Migration running"}
+            icon={complete ? "check_circle" : cancelled ? "cancel" : cancelling ? "progress_activity" : "rocket_launch"}
+            title={complete
+                ? "Migration complete"
+                : cancelled
+                    ? "Migration cancelled"
+                    : cancelling
+                        ? "Cancelling migration"
+                        : status === "paused" ? "Migration paused" : "Migration running"}
             subtitle={complete
                 ? "Every release reached a terminal state."
                 : cancelled
                     ? "Complete a new scan before starting another migration."
-                    : "Releases are submitted up to the queue-depth gate and reconciled as they import."}
+                    : cancelling
+                        ? "Waiting for the current queue submission to drain and be reconciled."
+                        : "Releases are submitted up to the queue-depth gate and reconciled as they import."}
         >
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <StatTile label="Pending" value={subs["pending"] ?? 0} />
@@ -700,7 +711,7 @@ function RunStep({ m, onLinks }: { m: Hook; onLinks: () => void }) {
                         <Icon name="stop" className="!text-[18px]" /> Cancel
                     </Button>
                 )}
-                {status === "running" && <span className="text-xs text-base-content/50">Live-updating…</span>}
+                {(status === "running" || cancelling) && <span className="text-xs text-base-content/50">Live-updating…</span>}
             </div>
 
             {complete && (
@@ -1199,7 +1210,9 @@ function ResetFooter({ m }: { m: Hook }) {
                 </Button>
                 <span className="text-xs text-base-content/45">
                     {resetActive
-                        ? "Finish or cancel the active task before resetting the wizard."
+                        ? m.status?.sessionStatus === "cancelling"
+                            ? "Wait for the current queue submission to drain before resetting the wizard."
+                            : "Finish or cancel the active task before resetting the wizard."
                         : "Clears this wizard session while preserving completed migration mappings."}
                 </span>
             </div>
@@ -1233,7 +1246,7 @@ function ResetFooter({ m }: { m: Hook }) {
                             Forget all run, release, and file mappings. This removes cross-run symlink provenance, but never
                             deletes mounted content or SAB history. Any symlinks already rewritten remain safe and unchanged.
                         </p>
-                        <Button className="mt-3" variant="danger" size="small" onClick={() => {
+                        <Button className="mt-3" variant="danger" size="small" disabled={resetActive || m.busy !== null} onClick={() => {
                             setManage(false);
                             setConfirmForget(true);
                         }}>

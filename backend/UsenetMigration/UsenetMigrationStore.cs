@@ -180,14 +180,42 @@ public sealed class UsenetMigrationStore
     }
 
     /// <summary>
-    /// Cancels the active durable run and consumes the scan that created it. A
-    /// subsequent run therefore requires a successful new scan.
+    /// Requests cancellation without making it terminal. The runner keeps this
+    /// state until the current external queue boundary has drained and its final
+    /// durable claim has been recovered and reconciled.
     /// </summary>
-    public async Task CancelRunAsync(CancellationToken ct = default)
+    public async Task<string> BeginCancellationAsync(CancellationToken ct = default)
+    {
+        await using var ctx = ContextFactory();
+        await GetOrCreateSessionAsync(ctx, ct).ConfigureAwait(false);
+        var now = DateTime.UtcNow;
+        await ctx.SessionState
+            .Where(s => s.Id == SessionId && (s.Status == "running" || s.Status == "paused"))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(s => s.Status, "cancelling")
+                .SetProperty(s => s.UpdatedAt, now), ct)
+            .ConfigureAwait(false);
+
+        return await ctx.SessionState.AsNoTracking()
+            .Where(s => s.Id == SessionId)
+            .Select(s => s.Status)
+            .SingleAsync(ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Publishes terminal cancellation after the runner has drained and
+    /// reconciled the current queue boundary. A subsequent run therefore
+    /// requires a successful new scan.
+    /// </summary>
+    public async Task CompleteCancellationAsync(CancellationToken ct = default)
     {
         await using var ctx = ContextFactory();
         await using var transaction = await ctx.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
         var session = await GetOrCreateSessionAsync(ctx, ct).ConfigureAwait(false);
+        if (session.Status is not "cancelling")
+            return;
+
         var now = DateTime.UtcNow;
 
         if (session.CurrentRunId is { } runId)

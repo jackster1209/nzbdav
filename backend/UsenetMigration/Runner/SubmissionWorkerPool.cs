@@ -38,6 +38,9 @@ public sealed class SubmissionWorkerPool(
     internal Func<MigrationRelease, CancellationToken, Task<byte[]>>? BuildNzbOverride { get; set; }
     internal Func<MigrationRelease, Guid, byte[], CancellationToken, Task>? SubmitPreparedReleaseOverride { get; set; }
 
+    internal Task<SubmissionRecoverySummary> RecoverClaimsAsync(CancellationToken ct = default) =>
+        SubmissionClaimRecovery.RecoverAsync(store, DavContextFactory, ct);
+
     /// <summary>
     /// Submits as many pending releases as the queue-depth gate allows, oldest
     /// first. A pause/cancel token stops before the next external submission;
@@ -51,8 +54,7 @@ public sealed class SubmissionWorkerPool(
         // Resolve claims left on the external AddFile boundary before taking any
         // new work. Recovery either adopts the exact durable id, safely retries
         // that same id, or refuses an ambiguous submission.
-        await SubmissionClaimRecovery.RecoverAsync(store, DavContextFactory, ct)
-            .ConfigureAwait(false);
+        await RecoverClaimsAsync(ct).ConfigureAwait(false);
 
         var session = await store.GetSessionAsync(ct).ConfigureAwait(false);
         var maxDepth = Math.Max(1, session.MaxQueueDepth);

@@ -398,12 +398,19 @@ public sealed class UsenetMigrationController(
         {
             if (session.Status is "cancelled")
                 return Ok(new { status = true, state = "cancelled" });
+            if (session.Status is "cancelling")
+            {
+                runner.InterruptSubmissionBatch();
+                return Ok(new { status = true, state = "cancelling" });
+            }
             if (!CanCancelMigration(session.Status))
                 throw new BadHttpRequestException("Only a running or paused migration can be cancelled.");
 
-            await store.CancelRunAsync(HttpContext.RequestAborted).ConfigureAwait(false);
+            var state = await store.BeginCancellationAsync(HttpContext.RequestAborted).ConfigureAwait(false);
+            if (state is not "cancelling")
+                throw new BadHttpRequestException("The migration finished before cancellation could begin.");
             runner.InterruptSubmissionBatch();
-            return Ok(new { status = true, state = "cancelled" });
+            return Ok(new { status = true, state = "cancelling" });
         }
 
         if (session.Status is "paused")
@@ -657,12 +664,7 @@ public sealed class UsenetMigrationController(
     [HttpPost("api/altmount-migration/reset")]
     public Task<IActionResult> Reset() => GuardedAsync(async () =>
     {
-        var session = await store.GetSessionAsync(HttpContext.RequestAborted).ConfigureAwait(false);
-        if (IsMigrationWorkActive(session.Status))
-            throw new BadHttpRequestException(
-                "Wait for the active migration task to finish, or cancel the migration, before resetting the wizard.");
-
-        await store.ResetAsync(HttpContext.RequestAborted).ConfigureAwait(false);
+        await ResetWizardAsync(store, HttpContext.RequestAborted).ConfigureAwait(false);
         return Ok(new { status = true });
     });
 
@@ -698,7 +700,18 @@ public sealed class UsenetMigrationController(
     internal static bool CanEditReleaseSelection(string sessionStatus) => sessionStatus == "scanned";
 
     internal static bool IsMigrationWorkActive(string sessionStatus) =>
-        sessionStatus is "scanning" or "running" or "paused" or "linking" or "applying";
+        sessionStatus is "scanning" or "running" or "paused" or "cancelling" or "linking" or "applying";
+
+    internal static async Task ResetWizardAsync(
+        UsenetMigrationStore migrationStore, CancellationToken ct = default)
+    {
+        var session = await migrationStore.GetSessionAsync(ct).ConfigureAwait(false);
+        if (IsMigrationWorkActive(session.Status))
+            throw new BadHttpRequestException(
+                "Wait for the active migration task to finish, or cancel the migration, before resetting the wizard.");
+
+        await migrationStore.ResetAsync(ct).ConfigureAwait(false);
+    }
 
     internal static async Task<List<SubmissionIssueDto>> LoadSubmissionIssuesAsync(
         UsenetMigrationDbContext context, CancellationToken ct = default)
@@ -744,7 +757,8 @@ public sealed class UsenetMigrationController(
         };
     }
 
-    internal static bool CanStartScan(string sessionStatus) => sessionStatus is not ("running" or "paused");
+    internal static bool CanStartScan(string sessionStatus) =>
+        sessionStatus is not ("running" or "paused" or "cancelling");
 
     internal static bool CanResumeMigration(string sessionStatus) => sessionStatus == "paused";
 

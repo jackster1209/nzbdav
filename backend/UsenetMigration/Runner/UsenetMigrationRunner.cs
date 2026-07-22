@@ -20,6 +20,8 @@ namespace NzbWebDAV.UsenetMigration.Runner;
 /// <item><c>running</c> → submits up to the queue-depth gate, then reconciles;
 ///   marks <c>complete</c> when no submission remains in flight.</item>
 /// <item><c>paused</c> → reconciles in-flight submissions only, submits nothing.</item>
+/// <item><c>cancelling</c> → recovers and reconciles the drained submission
+///   boundary, then publishes terminal <c>cancelled</c>.</item>
 /// </list>
 /// Owns the scan runner, worker pool, and reconciler; nothing else touches the
 /// submit/reconcile cadence.
@@ -58,6 +60,10 @@ public sealed class UsenetMigrationRunner : BackgroundService
     /// so its NzbDAV queue id can still be persisted by the worker.
     /// </summary>
     internal void InterruptSubmissionBatch() => _submissionGate.Interrupt();
+
+    internal SubmissionWorkerPool WorkerPoolForTests => _workerPool;
+    internal SubmissionReconciler ReconcilerForTests => _reconciler;
+    internal Task TickOnceForTestsAsync(CancellationToken ct = default) => TickAsync(ct);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -127,6 +133,17 @@ public sealed class UsenetMigrationRunner : BackgroundService
 
             case "paused":
                 await _reconciler.ReconcileAsync(ct).ConfigureAwait(false);
+                break;
+
+            case "cancelling":
+                if (_submissionGate.IsActive)
+                    break;
+
+                // Recover before reconciling in case AddFile committed but the
+                // worker did not persist success at the drained boundary.
+                await _workerPool.RecoverClaimsAsync(ct).ConfigureAwait(false);
+                await _reconciler.ReconcileAsync(ct).ConfigureAwait(false);
+                await _store.CompleteCancellationAsync(ct).ConfigureAwait(false);
                 break;
 
             case "linking":
@@ -232,6 +249,15 @@ internal sealed class SubmissionOperationGate
         {
             _epoch++;
             _active?.Cancel();
+        }
+    }
+
+    internal bool IsActive
+    {
+        get
+        {
+            lock (_lock)
+                return _active is not null;
         }
     }
 

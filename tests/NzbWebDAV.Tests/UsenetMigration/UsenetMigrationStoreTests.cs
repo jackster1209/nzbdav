@@ -177,13 +177,22 @@ public class UsenetMigrationStoreTests
     }
 
     [Fact]
-    public async Task CancelRun_ClosesDurableRun_AndFreshScanCreatesNewRun()
+    public async Task Cancellation_ClosesDurableRun_AndFreshScanCreatesNewRun()
     {
         await using var h = await MigrationTestHarness.CreateAsync();
         var firstRunId = await h.Store.BeginRunAsync();
         await h.Store.UpdateSessionAsync(s => s.Status = "running");
 
-        await h.Store.CancelRunAsync();
+        Assert.Equal("cancelling", await h.Store.BeginCancellationAsync());
+        await using (var draining = h.Mig())
+        {
+            Assert.Equal("cancelling", (await draining.SessionState.SingleAsync()).Status);
+            var activeRun = await draining.MigrationRuns.SingleAsync(r => r.Id == firstRunId);
+            Assert.Equal("running", activeRun.Status);
+            Assert.Null(activeRun.CompletedAt);
+        }
+
+        await h.Store.CompleteCancellationAsync();
         await h.Store.CompleteRunAsync(); // stale runner tick must not undo cancellation
 
         await using (var check = h.Mig())

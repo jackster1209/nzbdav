@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using NzbWebDAV.Api.Controllers.UsenetMigration;
 using NzbWebDAV.Clients.Usenet;
 using NzbWebDAV.Config;
 using NzbWebDAV.Database.Models;
@@ -41,6 +43,88 @@ public sealed class SubmissionWorkerPoolTests
             .Select(s => s.State)
             .ToListAsync();
         Assert.Equal(["submitted", "pending"], states);
+    }
+
+    [Fact]
+    public async Task CancelDuringBlockedSubmission_BlocksResetUntilClaimIsReconciled()
+    {
+        await using var h = await MigrationTestHarness.CreateAsync();
+        await SeedPendingAsync(h, "store-a");
+        var runId = await h.Store.BeginRunAsync();
+        using var queueManager = CreateQueueManager();
+        var configManager = new ConfigManager();
+        var websocketManager = new WebsocketManager();
+        var runner = new UsenetMigrationRunner(
+            h.Store, queueManager, configManager, websocketManager);
+        runner.WorkerPoolForTests.DavContextFactory = h.DavFactory;
+        runner.WorkerPoolForTests.BuildNzbOverride = (_, _) => Task.FromResult<byte[]>([1]);
+        runner.ReconcilerForTests.DavContextFactory = h.DavFactory;
+
+        var submissionEntered = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSubmission = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        runner.WorkerPoolForTests.SubmitPreparedReleaseOverride = async (
+            release, claimedId, _, _) =>
+        {
+            submissionEntered.TrySetResult(true);
+            await releaseSubmission.Task;
+
+            await using var dav = h.Dav();
+            dav.QueueItems.Add(new QueueItem
+            {
+                Id = claimedId,
+                CreatedAt = DateTime.UtcNow,
+                FileName = release.QueueFileName,
+                JobName = release.JobName,
+                NzbFileSize = 100,
+                TotalSegmentBytes = 100,
+                Category = release.TargetCategory!,
+                Priority = QueueItem.PriorityOption.Low,
+                PostProcessing = QueueItem.PostProcessingOption.None,
+            });
+            await dav.SaveChangesAsync();
+        };
+
+        var activeTick = runner.TickOnceForTestsAsync();
+        await submissionEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("cancelling", await h.Store.BeginCancellationAsync());
+        runner.InterruptSubmissionBatch();
+
+        await Assert.ThrowsAsync<BadHttpRequestException>(
+            () => UsenetMigrationController.ResetWizardAsync(h.Store));
+        await runner.TickOnceForTestsAsync();
+        await using (var blocked = h.Mig())
+        {
+            Assert.Equal("cancelling", (await blocked.SessionState.SingleAsync()).Status);
+            Assert.Equal("submitting", (await blocked.Submissions.SingleAsync()).State);
+            Assert.Single(await blocked.Releases.ToListAsync());
+        }
+
+        releaseSubmission.TrySetResult(true);
+        await activeTick.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await using (var drained = h.Mig())
+        {
+            Assert.Equal("cancelling", (await drained.SessionState.SingleAsync()).Status);
+            Assert.Equal("processing", (await drained.Submissions.SingleAsync()).State);
+        }
+
+        await runner.TickOnceForTestsAsync();
+
+        await using (var cancelled = h.Mig())
+        {
+            Assert.Equal("cancelled", (await cancelled.SessionState.SingleAsync()).Status);
+            var run = await cancelled.MigrationRuns.SingleAsync(r => r.Id == runId);
+            Assert.Equal("cancelled", run.Status);
+            Assert.NotNull(run.CompletedAt);
+        }
+
+        await UsenetMigrationController.ResetWizardAsync(h.Store);
+        await using var reset = h.Mig();
+        Assert.Equal("idle", (await reset.SessionState.SingleAsync()).Status);
+        Assert.Empty(await reset.Submissions.ToListAsync());
     }
 
     [Fact]

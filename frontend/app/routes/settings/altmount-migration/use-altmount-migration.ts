@@ -10,6 +10,7 @@ export type SessionStatus =
     | "scanned"
     | "running"
     | "paused"
+    | "cancelling"
     | "complete"
     | "cancelled"
     // Step 6 uses transient linking/applying states and rests at linked.
@@ -18,7 +19,7 @@ export type SessionStatus =
     | "applying";
 
 export function isMigrationWorkActive(status: SessionStatus | undefined): boolean {
-    return status === "scanning" || status === "running" || status === "paused"
+    return status === "scanning" || status === "running" || status === "paused" || status === "cancelling"
         || status === "linking" || status === "applying";
 }
 

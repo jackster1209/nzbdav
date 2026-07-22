@@ -8,6 +8,7 @@ public class MigrationRunStateTests
     [InlineData("scanned", true)]
     [InlineData("running", false)]
     [InlineData("paused", false)]
+    [InlineData("cancelling", false)]
     [InlineData("complete", false)]
     [InlineData("cancelled", false)]
     [InlineData("scanning", false)]
@@ -21,6 +22,7 @@ public class MigrationRunStateTests
     [InlineData("scanning", false)]
     [InlineData("running", false)]
     [InlineData("paused", false)]
+    [InlineData("cancelling", false)]
     [InlineData("complete", false)]
     [InlineData("cancelled", false)]
     [InlineData("linking", false)]
@@ -36,6 +38,7 @@ public class MigrationRunStateTests
     [InlineData("scanning", false)]
     [InlineData("running", false)]
     [InlineData("paused", false)]
+    [InlineData("cancelling", false)]
     [InlineData("complete", false)]
     [InlineData("cancelled", false)]
     [InlineData("linked", false)]
@@ -45,6 +48,7 @@ public class MigrationRunStateTests
     [Theory]
     [InlineData("running", false)]
     [InlineData("paused", false)]
+    [InlineData("cancelling", false)]
     [InlineData("complete", true)]
     [InlineData("cancelled", true)]
     [InlineData("scanned", true)]
@@ -57,6 +61,7 @@ public class MigrationRunStateTests
     [InlineData("running", false)]
     [InlineData("complete", false)]
     [InlineData("cancelled", false)]
+    [InlineData("cancelling", false)]
     public void ResumeMigration_RequiresPausedRun(string status, bool expected) =>
         Assert.Equal(expected, UsenetMigrationController.CanResumeMigration(status));
 
@@ -67,6 +72,7 @@ public class MigrationRunStateTests
         Assert.False(UsenetMigrationController.CanPauseMigration("paused"));
         Assert.True(UsenetMigrationController.CanCancelMigration("running"));
         Assert.True(UsenetMigrationController.CanCancelMigration("paused"));
+        Assert.False(UsenetMigrationController.CanCancelMigration("cancelling"));
         Assert.False(UsenetMigrationController.CanCancelMigration("scanned"));
         Assert.False(UsenetMigrationController.CanCancelMigration("complete"));
     }
@@ -75,6 +81,7 @@ public class MigrationRunStateTests
     [InlineData("scanning", true)]
     [InlineData("running", true)]
     [InlineData("paused", true)]
+    [InlineData("cancelling", true)]
     [InlineData("linking", true)]
     [InlineData("applying", true)]
     [InlineData("idle", false)]

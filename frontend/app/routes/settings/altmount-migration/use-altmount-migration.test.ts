@@ -31,7 +31,7 @@ describe("beginLatestRequest", () => {
 });
 
 describe("isMigrationWorkActive", () => {
-    it.each<SessionStatus>(["scanning", "running", "paused", "linking", "applying"])(
+    it.each<SessionStatus>(["scanning", "running", "paused", "cancelling", "linking", "applying"])(
         "blocks destructive wizard actions while status is %s",
         (status) => expect(isMigrationWorkActive(status)).toBe(true),
     );
@@ -47,7 +47,7 @@ describe("isMigrationWorkActive", () => {
 });
 
 describe("canResetMigration", () => {
-    it.each<SessionStatus>(["scanning", "running", "paused", "linking", "applying"])(
+    it.each<SessionStatus>(["scanning", "running", "paused", "cancelling", "linking", "applying"])(
         "blocks Reset Wizard while status is %s",
         (status) => expect(canResetMigration(status, null)).toBe(false),
     );
@@ -65,14 +65,14 @@ describe("review mutation state guards", () => {
         (status) => expect(canEditCategoryMappings(status)).toBe(true),
     );
 
-    it.each<SessionStatus>(["idle", "scanning", "running", "paused", "complete", "cancelled", "linking", "linked", "applying"])(
+    it.each<SessionStatus>(["idle", "scanning", "running", "paused", "cancelling", "complete", "cancelled", "linking", "linked", "applying"])(
         "locks category mapping edits while status is %s",
         (status) => expect(canEditCategoryMappings(status)).toBe(false),
     );
 
     it("allows release selection edits only for a completed scan", () => {
         const statuses: (SessionStatus | undefined)[] = [
-            undefined, "idle", "connected", "mapped", "scanning", "running", "paused",
+            undefined, "idle", "connected", "mapped", "scanning", "running", "paused", "cancelling",
             "complete", "cancelled", "linking", "linked", "applying",
         ];
         expect(canEditReleaseSelection("scanned")).toBe(true);
