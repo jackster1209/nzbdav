@@ -30,6 +30,8 @@ public sealed class MigrationSessionStateMachineTests
             [MigrationSessionTransition.CompleteLinkPlan] = new("linked", "linking"),
             [MigrationSessionTransition.StartApply] = new("applying", "linked"),
             [MigrationSessionTransition.CompleteApply] = new("linked", "applying"),
+            [MigrationSessionTransition.StartRestore] = new("restoring", "linked"),
+            [MigrationSessionTransition.CompleteRestore] = new("linked", "restoring"),
         };
 
     public static IEnumerable<object[]> TransitionMatrix()
@@ -180,6 +182,22 @@ public sealed class MigrationSessionStateMachineTests
 
         var session = await h.Store.GetSessionAsync();
         Assert.Equal(reset ? "idle" : "scanning", session.Status);
+    }
+
+    [Fact]
+    public async Task Step6CompetingClaims_HaveOneWinner()
+    {
+        await using var h = await MigrationTestHarness.CreateAsync();
+        await h.Store.UpdateSessionAsync(s => s.Status = "linked");
+
+        var results = await Task.WhenAll(
+            h.Store.TryTransitionSessionAsync(MigrationSessionTransition.StartLinkPlan),
+            h.Store.TryTransitionSessionAsync(MigrationSessionTransition.StartApply),
+            h.Store.TryTransitionSessionAsync(MigrationSessionTransition.StartRestore));
+
+        Assert.Single(results, r => r.Outcome == MigrationSessionTransitionOutcome.Applied);
+        Assert.Equal(2, results.Count(r => r.Outcome == MigrationSessionTransitionOutcome.Rejected));
+        Assert.Contains((await h.Store.GetSessionAsync()).Status, new[] { "linking", "applying", "restoring" });
     }
 
     private sealed record ExpectedRule(string TargetStatus, params string[] SourceStatuses);

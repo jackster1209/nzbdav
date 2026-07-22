@@ -37,8 +37,10 @@ public sealed class UsenetMigrationRunner : BackgroundService
     private readonly SubmissionReconciler _reconciler;
     private readonly SymlinkPlanner _symlinkPlanner;
     private readonly SymlinkRewriter _symlinkRewriter;
+    private readonly SymlinkRestoreService _symlinkRestoreService;
     private readonly SubmissionOperationGate _scanGate = new();
     private readonly SubmissionOperationGate _submissionGate = new();
+    private readonly SubmissionOperationGate _restoreGate = new();
 
     public UsenetMigrationRunner(
         UsenetMigrationStore store,
@@ -53,6 +55,7 @@ public sealed class UsenetMigrationRunner : BackgroundService
         _reconciler = new SubmissionReconciler(store);
         _symlinkPlanner = new SymlinkPlanner(store, configManager);
         _symlinkRewriter = new SymlinkRewriter(store);
+        _symlinkRestoreService = new SymlinkRestoreService(store);
     }
 
     /// <summary>
@@ -66,7 +69,42 @@ public sealed class UsenetMigrationRunner : BackgroundService
     internal AltmountScanRunner ScanRunnerForTests => _scanRunner;
     internal SubmissionWorkerPool WorkerPoolForTests => _workerPool;
     internal SubmissionReconciler ReconcilerForTests => _reconciler;
+    internal SymlinkPlanner SymlinkPlannerForTests => _symlinkPlanner;
+    internal SymlinkRewriter SymlinkRewriterForTests => _symlinkRewriter;
+    internal SymlinkRestoreService SymlinkRestoreServiceForTests => _symlinkRestoreService;
     internal Task TickOnceForTestsAsync(CancellationToken ct = default) => TickAsync(ct);
+
+    /// <summary>
+    /// Runs restore behind both a durable state claim and an in-process operation
+    /// boundary. Request cancellation is intentionally ignored after the claim so
+    /// a disconnected client cannot interrupt filesystem work before DB updates.
+    /// </summary>
+    internal async Task<SymlinkRestoreSummary> RestoreSymlinksAsync(
+        string fileName,
+        CancellationToken requestCancellationToken = default)
+    {
+        using var restoreOperation = _restoreGate.Begin(CancellationToken.None);
+        var transition = await _store.TryTransitionSessionAsync(
+                MigrationSessionTransition.StartRestore, requestCancellationToken)
+            .ConfigureAwait(false);
+        if (transition.Outcome != MigrationSessionTransitionOutcome.Applied)
+        {
+            throw new InvalidOperationException(
+                $"Cannot restore symlinks while migration operation '{transition.CurrentStatus}' is active.");
+        }
+
+        try
+        {
+            return await _symlinkRestoreService.RestoreAsync(fileName, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await _store.TryTransitionSessionAsync(
+                    MigrationSessionTransition.CompleteRestore, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -155,18 +193,63 @@ public sealed class UsenetMigrationRunner : BackgroundService
                 break;
 
             case "linking":
-                // Step 6 — build the rewrite plan (dry-run), then rest at "linked".
-                await _symlinkPlanner.PlanAsync(ct).ConfigureAwait(false);
-                await _store.UpdateSessionAsync(s => s.Status = "linked", ct).ConfigureAwait(false);
+                await RunStep6OperationAsync(
+                        "symlink plan",
+                        token => _symlinkPlanner.PlanAsync(token),
+                        MigrationSessionTransition.CompleteLinkPlan,
+                        ct)
+                    .ConfigureAwait(false);
                 break;
 
             case "applying":
-                // Step 6 — apply the reviewed plan (backup + retarget), then rest at
-                // "linked" so the UI can show applied/failed results and allow re-plan.
-                await _symlinkRewriter.ApplyAsync(ct).ConfigureAwait(false);
-                await _store.UpdateSessionAsync(s => s.Status = "linked", ct).ConfigureAwait(false);
+                await RunStep6OperationAsync(
+                        "symlink apply",
+                        token => _symlinkRewriter.ApplyAsync(token),
+                        MigrationSessionTransition.CompleteApply,
+                        ct)
+                    .ConfigureAwait(false);
+                break;
+
+            case "restoring":
+                // A restore normally runs in its originating request while this
+                // in-memory gate is active. Without it, the process was interrupted
+                // after the durable claim; return to Review for an idempotent retry.
+                if (!_restoreGate.IsActive)
+                {
+                    Log.Warning(
+                        "An interrupted symlink restore was returned to Review. Retry the restore to reconcile remaining links.");
+                    await _store.TryTransitionSessionAsync(
+                            MigrationSessionTransition.CompleteRestore, ct)
+                        .ConfigureAwait(false);
+                }
                 break;
         }
+    }
+
+    private async Task RunStep6OperationAsync<T>(
+        string operationName,
+        Func<CancellationToken, Task<T>> operation,
+        MigrationSessionTransition completionTransition,
+        CancellationToken ct)
+    {
+        try
+        {
+            await operation(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Keep the durable active state so a restart can resume the operation.
+            throw;
+        }
+        catch (Exception e)
+        {
+            Log.Warning(
+                "Usenet migration {Operation} stopped and returned to Review. Reason: {Reason}",
+                operationName, e.Message);
+            Log.Debug(e, "Usenet migration {Operation} failure stack", operationName);
+        }
+
+        await _store.TryTransitionSessionAsync(completionTransition, ct).ConfigureAwait(false);
     }
 
     private async Task RunScanAsync(CancellationToken ct)

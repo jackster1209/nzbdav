@@ -527,18 +527,12 @@ public sealed class UsenetMigrationController(
         var libraryRoot = RequireDir(request.LibraryRoot, "libraryRoot");
         var backupDir = EnsureWritableDir(request.BackupDir, "backupDir");
 
-        await store.UpdatePreferencesAsync(p =>
-        {
-            p.SymlinkLibraryRoot = libraryRoot;
-            p.SymlinkBackupDir = backupDir;
-        }, HttpContext.RequestAborted).ConfigureAwait(false);
-
-        await store.UpdateSessionAsync(s =>
-        {
-            s.SymlinkLibraryRoot = libraryRoot;
-            s.SymlinkBackupDir = backupDir;
-            s.Status = "linking";
-        }, HttpContext.RequestAborted).ConfigureAwait(false);
+        var transition = await store.StartSymlinkPlanAsync(
+                libraryRoot, backupDir, HttpContext.RequestAborted)
+            .ConfigureAwait(false);
+        if (transition.Outcome != MigrationSessionTransitionOutcome.Applied)
+            throw new BadHttpRequestException(
+                $"Cannot build a symlink plan while migration operation '{transition.CurrentStatus}' is active.");
 
         return Ok(new { status = true, state = "linking" });
     });
@@ -626,8 +620,12 @@ public sealed class UsenetMigrationController(
                 throw new BadHttpRequestException("The current plan has no rewrites to apply.");
         }
 
-        await store.UpdateSessionAsync(s => s.Status = "applying", HttpContext.RequestAborted)
+        var transition = await store.TryTransitionSessionAsync(
+                MigrationSessionTransition.StartApply, HttpContext.RequestAborted)
             .ConfigureAwait(false);
+        if (transition.Outcome != MigrationSessionTransitionOutcome.Applied)
+            throw new BadHttpRequestException(
+                $"Cannot apply symlinks while migration operation '{transition.CurrentStatus}' is active.");
 
         return Ok(new { status = true, state = "applying" });
     });
@@ -647,15 +645,11 @@ public sealed class UsenetMigrationController(
         if (request.Confirm != true)
             throw new BadHttpRequestException("Restoring symlinks requires explicit confirmation.");
 
-        var session = await store.GetSessionAsync(HttpContext.RequestAborted).ConfigureAwait(false);
-        if (session.Status is not "linked")
-            throw new BadHttpRequestException("Wait for the current symlink operation to finish before restoring.");
-
         SymlinkRestoreSummary summary;
         try
         {
-            summary = await new SymlinkRestoreService(store)
-                .RestoreAsync(request.FileName ?? "", HttpContext.RequestAborted)
+            summary = await runner
+                .RestoreSymlinksAsync(request.FileName ?? "", HttpContext.RequestAborted)
                 .ConfigureAwait(false);
         }
         catch (Exception e) when (e is InvalidDataException or FileNotFoundException or InvalidOperationException)

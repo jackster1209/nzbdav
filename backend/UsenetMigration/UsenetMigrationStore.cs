@@ -160,6 +160,54 @@ public sealed class UsenetMigrationStore
         return transition;
     }
 
+    /// <summary>
+    /// Saves Step 6 paths and claims plan generation in one transaction, so the
+    /// runner cannot observe <c>linking</c> with stale or partially updated paths.
+    /// </summary>
+    internal async Task<MigrationSessionTransitionResult> StartSymlinkPlanAsync(
+        string libraryRoot,
+        string backupDir,
+        CancellationToken ct = default)
+    {
+        await using var ctx = ContextFactory();
+        await GetOrCreateSessionAsync(ctx, ct).ConfigureAwait(false);
+        ctx.ChangeTracker.Clear();
+        await using var transaction = await ctx.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        var transition = await TryTransitionSessionAsync(
+                ctx, MigrationSessionTransition.StartLinkPlan, ct)
+            .ConfigureAwait(false);
+        if (transition.Outcome != MigrationSessionTransitionOutcome.Applied)
+        {
+            await transaction.RollbackAsync(ct).ConfigureAwait(false);
+            return transition;
+        }
+
+        var now = DateTime.UtcNow;
+        var session = await ctx.SessionState.SingleAsync(s => s.Id == SessionId, ct)
+            .ConfigureAwait(false);
+        session.SymlinkLibraryRoot = libraryRoot;
+        session.SymlinkBackupDir = backupDir;
+        session.UpdatedAt = now;
+
+        var preferences = await ctx.Preferences
+            .FirstOrDefaultAsync(p => p.Id == SessionId, ct)
+            .ConfigureAwait(false);
+        if (preferences is null)
+        {
+            preferences = new MigrationPreferences { Id = SessionId };
+            ctx.Preferences.Add(preferences);
+        }
+
+        preferences.SymlinkLibraryRoot = libraryRoot;
+        preferences.SymlinkBackupDir = backupDir;
+        preferences.UpdatedAt = now;
+
+        await ctx.SaveChangesAsync(ct).ConfigureAwait(false);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
+        return transition;
+    }
+
     // --- session -----------------------------------------------------------
 
     /// <summary>Loads the singleton session, creating it (Id=1) on first call.</summary>

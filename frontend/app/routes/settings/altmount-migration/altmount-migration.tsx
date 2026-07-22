@@ -799,10 +799,12 @@ function SymlinkStep({ m }: { m: Hook }) {
 
     const linking = status === "linking";
     const applying = status === "applying";
+    const restoring = status === "restoring";
     const linked = status === "linked";
     const busyPlan = m.busy === "symlink-plan";
+    const step6Active = linking || applying || restoring || m.busy !== null;
     const canPlan = form.libraryRoot.trim().length > 0 && form.backupDir.trim().length > 0
-        && !linking && !applying && !busyPlan;
+        && !step6Active;
 
     return (
         <div className="flex flex-col gap-6">
@@ -823,6 +825,7 @@ function SymlinkStep({ m }: { m: Hook }) {
                         required
                         help="Root of the arr/Plex library whose symlinks currently point at Altmount."
                         value={form.libraryRoot}
+                        disabled={step6Active}
                         onChange={(v) => setForm({ ...form, libraryRoot: v })}
                     />
                     <PathField
@@ -830,6 +833,7 @@ function SymlinkStep({ m }: { m: Hook }) {
                         required
                         help="Where the wizard writes the restore tarball before rewriting."
                         value={form.backupDir}
+                        disabled={step6Active}
                         onChange={(v) => setForm({ ...form, backupDir: v })}
                     />
 
@@ -840,6 +844,7 @@ function SymlinkStep({ m }: { m: Hook }) {
                         </Button>
                         {linking && <span className="text-xs text-base-content/60">Scanning the library and matching symlinks… updates automatically.</span>}
                         {applying && <span className="flex items-center gap-2 text-xs text-base-content/60"><Spinner className="h-4 w-4" /> Applying rewrites…</span>}
+                        {restoring && <span className="flex items-center gap-2 text-xs text-base-content/60"><Spinner className="h-4 w-4" /> Restoring symlinks…</span>}
                     </div>
                 </div>
             </Section>
@@ -878,7 +883,7 @@ function SymlinkResults({ m }: { m: Hook }) {
     const rewrites = counts["rewrite"] ?? 0;
     const applied = counts["applied"] ?? 0;
     const failed = counts["failed"] ?? 0;
-    const canApply = !loading && loadError === null && rewrites > 0 && m.busy !== "symlink-apply";
+    const canApply = !loading && loadError === null && rewrites > 0 && m.busy === null;
     const pages = Math.max(1, Math.ceil(data.total / filters.pageSize));
 
     const doApply = () => {
@@ -1010,6 +1015,7 @@ function SymlinkRestoreAction({ m, onRestored }: { m: Hook; onRestored: () => vo
     const [selected, setSelected] = useState("");
     const [confirm, setConfirm] = useState(false);
     const busy = m.busy === "symlink-restore";
+    const step6Busy = m.busy !== null;
     const archive = backups.find((b) => b.fileName === selected);
     const result = m.symlinkRestoreResult;
 
@@ -1054,7 +1060,7 @@ function SymlinkRestoreAction({ m, onRestored }: { m: Hook; onRestored: () => vo
                         <Select
                             className="select-sm min-w-64 max-w-full"
                             value={selected}
-                            disabled={loading || backups.length === 0}
+                            disabled={loading || backups.length === 0 || step6Busy}
                             onChange={(e) => setSelected(e.target.value)}
                         >
                             {backups.length === 0 && <option value="">No restore archives found</option>}
@@ -1067,13 +1073,13 @@ function SymlinkRestoreAction({ m, onRestored }: { m: Hook; onRestored: () => vo
                         <Button
                             variant="outline"
                             size="small"
-                            disabled={!archive?.isValid || busy}
+                            disabled={!archive?.isValid || step6Busy}
                             onClick={() => setConfirm(true)}
                         >
                             {busy ? <Spinner className="h-4 w-4" /> : <Icon name="restore" className="!text-[18px]" />}
                             Restore
                         </Button>
-                        <Button variant="ghost" size="small" disabled={loading} onClick={() => void load()}>
+                        <Button variant="ghost" size="small" disabled={loading || step6Busy} onClick={() => void load()}>
                             <Icon name="refresh" className="!text-[16px]" />
                         </Button>
                     </div>
@@ -1363,11 +1369,11 @@ function Section({ icon, title, subtitle, children }: { icon: string; title: str
     );
 }
 
-function PathField({ label, help, value, required, onChange }: { label: string; help?: string; value: string; required?: boolean; onChange: (v: string) => void }) {
+function PathField({ label, help, value, required, disabled, onChange }: { label: string; help?: string; value: string; required?: boolean; disabled?: boolean; onChange: (v: string) => void }) {
     return (
         <label className="block space-y-1">
             <span className="block text-sm font-medium text-base-content">{label}{required && <span className="text-error"> *</span>}</span>
-            <Input className="w-full font-mono" value={value} onChange={(e) => onChange(e.target.value)} placeholder="/path/to/…" />
+            <Input className="w-full font-mono" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} placeholder="/path/to/…" />
             {help && <span className="block text-[11px] leading-relaxed text-base-content/45">{help}</span>}
         </label>
     );

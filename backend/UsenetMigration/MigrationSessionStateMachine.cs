@@ -63,6 +63,8 @@ internal enum MigrationSessionTransition
     CompleteLinkPlan,
     StartApply,
     CompleteApply,
+    StartRestore,
+    CompleteRestore,
 }
 
 internal sealed record MigrationSessionTransitionRule(
@@ -178,6 +180,12 @@ internal static class MigrationSessionStateMachine
             MigrationSessionTransition.CompleteApply => new(
                 MigrationSessionStatus.Linked,
                 [MigrationSessionStatus.Applying]),
+            MigrationSessionTransition.StartRestore => new(
+                MigrationSessionStatus.Restoring,
+                [MigrationSessionStatus.Linked]),
+            MigrationSessionTransition.CompleteRestore => new(
+                MigrationSessionStatus.Linked,
+                [MigrationSessionStatus.Restoring]),
             _ => throw new ArgumentOutOfRangeException(nameof(transition), transition, null),
         };
 
